@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+        /* Oculta a barra de rolagem da página principal */
+        body {
+            overflow: hidden;
+        }
+
+        /* Estilo do menu principal - Teste de git para ver se funciona*/
+        .menu {
+            display: flex;
+            align-items: center;
+            background-color: #ffffff;
+            padding: 15px 20px;
+            font-size: 1em;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+        }
+
+        .menu a {
+            margin: 0 20px;
+            color: #1c5243;
+            text-decoration: none;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .menu a:hover {
+            color: #28a167;
+        }
+
+        /* Estilo do submenu em cascata */
+        .submenu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #ffffff;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            min-width: 150px;
+        }
+
+        .submenu a {
+            display: block;
+            padding: 10px;
+            color: #1c5243;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .submenu a:hover {
+            background-color: #f0f4f3;
+            color: #28a167;
+        }
+        /* Informações do usuário alinhadas à direita */
+        .user-info {
+            display: flex;
+            flex-direction: column; /* Nome e logout em colunas */
+            align-items: flex-end;  /* Alinha o texto à direita */
+            margin-left: auto; /* Empurra os itens para o lado direito */
+            font-size: 1rem;
+            font-weight: bold;
+            color: #1c5243;
+        }
+
+        .logout {
+            font-size: 0.9rem;
+            display: block;
+            color: #e74c3c;
+            text-decoration: none;
+            font-weight: normal;
+            margin-top: 3px;
+        }
+
+        .logout:hover {
+            color: #c0392b;
+            text-decoration: underline;
+        }
+        /* Logo da empresa */
+        .logo {
+            height: 40px;
+            margin-right: 20px;
+        }
+
+        /* Estilo do iframe para ocupar a tela toda com rolagem, quando necessário */
+        iframe {
+            width: 100%;
+            height: calc(100vh - 70px); /* Altura total menos o menu */
+            border: none;
+            overflow-y: auto; /* Ativa a rolagem vertical apenas no iframe */
+        }
+    </style>
+</head>
+<body>    
+    <div class="menu">
+        <img src="imgs/logo_menu.png" alt="Logo" class="logo">
+        <?php if ($menus['aut'] && !empty($menus['menus'])) {
+            // Organiza os menus e itens por grupos
+            $menuEstruturado = [];
+            foreach ($menus['menus'] as $menu) {
+                $menuEstruturado[$menu['dsc_menu']]['ajuda_menu'] = $menu['ajuda_menu'];
+                $menuEstruturado[$menu['dsc_menu']]['itens'][] = [
+                    'descricao' => $menu['dsc_item'],
+                    'link' => $menu['link_item'],
+                    'ordem_item' => $menu['ordem_item']
+                ];
+            }
+        
+            // Ordena os itens dentro de cada menu
+            foreach ($menuEstruturado as &$detalhes) {
+                usort($detalhes['itens'], function ($a, $b) {
+                    return $a['ordem_item'] <=> $b['ordem_item'];
+                });
+            }
+            unset($detalhes);
+        } else {
+            $menuEstruturado = [];
+        }
+        ?>
+        <?php if (!empty($menuEstruturado)): ?>
+            <?php foreach ($menuEstruturado as $menu => $detalhes): ?>
+                <div class="menu-item">
+                    <a href="#" onclick="toggleSubmenu(event, '<?= htmlspecialchars($menu) ?>Submenu')">
+                        <?= htmlspecialchars($menu) ?>
+                    </a>
+                    <div id="<?= htmlspecialchars($menu) ?>Submenu" class="submenu">
+                        <?php foreach ($detalhes['itens'] as $item): ?>
+                            <a href="?acao=<?= urlencode($item['link']) ?>" 
+                            target="contentFrame" 
+                            onclick="closeSubmenu()">
+                                <?= htmlspecialchars($item['descricao']) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+
+        <div class="user-info">
+            <?php echo $nome_visualizacao; ?>
+            <a href="logout.php" class="logout">Logout</a>
+        </div>
+    
+    </div>
+    <!-- Iframe que ocupa toda a área abaixo do menu -->
+    <div onclick="closeSubmenu()" style="position: relative;">
+        <iframe name="contentFrame" srcdoc="<body style='background-color: #1c5243;'></body>" style="border: none; width: 100%; height: 100%;"></iframe>
+    </div>
+
+    <script>
+        function toggleSubmenu(event, submenuId) {
+            event.preventDefault();
+
+            // Fecha outros submenus abertos
+            const submenus = document.querySelectorAll('.submenu');
+            submenus.forEach(submenu => {
+                if (submenu.id !== submenuId) {
+                    submenu.style.display = 'none';
+                }
+            });
+
+            // Alterna a exibição do submenu atual
+            const submenu = document.getElementById(submenuId);
+            const menuItem = event.currentTarget; // Referência ao item do menu clicado
+
+            if (submenu.style.display === 'block') {
+                submenu.style.display = 'none';
+            } else {
+                submenu.style.display = 'block';
+                submenu.style.left = menuItem.offsetLeft + 'px'; // Alinha o submenu ao item do menu
+            }
+        }
+
+        // Fecha o submenu ao clicar em um item
+        function closeSubmenu() {
+            const submenus = document.querySelectorAll('.submenu');
+            submenus.forEach(submenu => {
+                submenu.style.display = 'none';
+            });
+        }
+
+        // Fecha o submenu se clicar fora
+        document.addEventListener('click', function(event) {
+            const isClickInside = event.target.closest('.menu-item');
+            if (!isClickInside) {
+                closeSubmenu();
+            }
+        });
+    </script>
+
+</body>
+</html>

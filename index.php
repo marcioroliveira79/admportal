@@ -221,26 +221,7 @@
                 closeSubmenu();
             }
         });
-
-        // Abre o modal de login
-        function openLoginModal() {
-            const modal = document.getElementById('loginModal');
-            modal.style.display = 'flex';
-        }
-
-        // Fecha o modal de login
-        function closeLoginModal() {
-            const modal = document.getElementById('loginModal');
-            modal.style.display = 'none';
-        }
-
-        // Fecha o modal se clicar fora do conteúdo
-        document.addEventListener('click', function(event) {
-            const modal = document.getElementById('loginModal');
-            if (event.target === modal) {
-                closeLoginModal();
-            }
-        });
+       
     </script>
 
 </body>
