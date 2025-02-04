@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo -e "                                                                                             "
+echo -e "                     ********************* ATENCAO ***********************                   "
+echo -e "                     *                                                   *                   "
+echo -e "                     *  POR FAVOR SAIA DO XFAC PRA MANUTENCAO DO SISTEMA *                   "
+echo -e "                     *                                                   *                   "
+echo -e "                     *****************************************************                   "
+echo -e "                                                                                             "
