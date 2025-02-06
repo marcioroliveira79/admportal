@@ -113,6 +113,72 @@ function getMenusPerfil($idPerfil,$conexao)
     return ['aut' => false, 'mensagem' => 'Informe um ID de perfil válido'];
 }
 
+function checkSession($id_usuario, $id_session, $conexao)
+{
+    // Verifica se os parâmetros são válidos
+    if (empty($id_usuario) || empty($id_session)) {
+        return 0; // Retorna 0 se os parâmetros estiverem vazios
+    }
+
+    // Query para verificar sessões encerradas
+    $query = "
+        SELECT COUNT(*) AS encerrado
+        FROM administracao.adm_log_acesso
+        WHERE fk_usuario = $1
+          AND session_id = $2
+          AND metodo_logout LIKE 'TEMPO SESSAO%'        
+    ";
+
+    // Executa a consulta no banco de dados
+    $result = pg_query_params($conexao, $query, [$id_usuario, $id_session]);
+
+    // Verifica se houve erro na consulta
+    if (!$result) {
+        error_log("Erro na consulta checkSession: " . pg_last_error($conexao));
+        return 0; // Retorna 0 em caso de erro
+    }
+
+    // Verifica se a consulta retornou resultados
+    if (pg_num_rows($result) > 0) {
+        $row = pg_fetch_assoc($result);
+
+        // Verifica se a chave 'encerrado' está presente no resultado
+        if (isset($row['encerrado'])) {
+            return (int)$row['encerrado']; // Retorna o valor de 'encerrado' como inteiro
+        }
+    }
+
+    // Retorna 0 se não houver resultados ou a chave não existir
+    return 0;
+}
+
+function updateSessionDataSaida($id_session, $conexao)
+{
+    // Verifica se o parâmetro é válido
+    if (empty($id_session)) {
+        return false; // Retorna false se o parâmetro estiver vazio
+    }
+
+    // Query para atualizar o campo data_saida
+    $query = "
+        UPDATE administracao.adm_log_acesso
+        SET data_saida = NOW()
+        WHERE session_id = $1
+    ";
+
+    // Executa a query parametrizada para evitar SQL Injection
+    $result = pg_query_params($conexao, $query, [$id_session]);
+
+    // Verifica se a query foi executada com sucesso
+    if (!$result) {
+        error_log("Erro na consulta updateSessionDataSaida: " . pg_last_error($conexao));
+        return false; // Retorna false em caso de erro
+    }
+
+    // Retorna true se a atualização foi bem-sucedida
+    return true;
+}
+
 
 function LoginUsuario($login, $senha, $conexao)
 {
@@ -157,23 +223,92 @@ function LoginUsuario($login, $senha, $conexao)
     return ['aut' => false, 'mensagem' => 'Informe o usuário e a senha'];
 }
 
+function getOS($userAgent) {
+    $osArray = array(
+        '/windows nt 10/i'      => 'Windows 10',
+        '/windows nt 6.3/i'     => 'Windows 8.1',
+        '/windows nt 6.2/i'     => 'Windows 8',
+        '/windows nt 6.1/i'     => 'Windows 7',
+        '/windows nt 6.0/i'     => 'Windows Vista',
+        '/windows nt 5.2/i'     => 'Windows Server 2003/XP x64',
+        '/windows nt 5.1/i'     => 'Windows XP',
+        '/windows xp/i'         => 'Windows XP',
+        '/windows nt 5.0/i'     => 'Windows 2000',
+        '/macintosh|mac os x/i' => 'Mac OS X',
+        '/mac_powerpc/i'        => 'Mac OS 9',
+        '/linux/i'              => 'Linux',
+        '/ubuntu/i'             => 'Ubuntu',
+        '/iphone/i'             => 'iPhone',
+        '/ipod/i'               => 'iPod',
+        '/ipad/i'               => 'iPad',
+        '/android/i'            => 'Android',
+        '/blackberry/i'         => 'BlackBerry',
+        '/webos/i'              => 'Mobile'
+    );
+
+    $os = "Desconhecido";
+    foreach ($osArray as $regex => $value) {
+        if (preg_match($regex, $userAgent)) {
+            $os = $value;
+            break;
+        }
+    }
+    return $os;
+}
 
 
-function LogAcesso($id_usuario, $id_session, $act, $conexao)
-{
-    
+function getBrowser($userAgent) {
+    $browserArray = array(
+        '/edge/i'      => 'Edge',
+        '/msie/i'      => 'Internet Explorer',
+        '/trident/i'   => 'Internet Explorer', // Para versões mais recentes do IE
+        '/firefox/i'   => 'Firefox',
+        '/safari/i'    => 'Safari',
+        '/chrome/i'    => 'Chrome',
+        '/opera/i'     => 'Opera',
+        '/netscape/i'  => 'Netscape',
+        '/maxthon/i'   => 'Maxthon',
+        '/konqueror/i' => 'Konqueror',
+        '/mobile/i'    => 'Navegador móvel'
+    );
+
+    $browser = "Desconhecido";
+    foreach ($browserArray as $regex => $value) {
+        if (preg_match($regex, $userAgent)) {
+            $browser = $value;
+            break;
+        }
+    }
+    return $browser;
+}
+
+function LogAcesso($id_usuario, $id_session, $act, $conexao){
     if (!isset($id_usuario, $id_session, $act)) {
         return "ERRO - Verifique os parâmetros";
     }
 
     if ($act === 'in') {
-        $query = "INSERT INTO administracao.adm_log_acesso (fk_usuario, data_acesso, ip_acesso, session_id)
-                  VALUES ($1, now(), $2, $3)";
-        pg_query_params($conexao, $query, [$id_usuario, get_real_ip(), $id_session]);
+        // Captura informações do user agent para identificar SO e navegador
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $sistema_operacional = getOS($userAgent);
+        $navegador = getBrowser($userAgent);
+
+        $query = "INSERT INTO administracao.adm_log_acesso (
+                      fk_usuario, data_acesso, ip_acesso, session_id, sistema_operacional, navegador
+                  ) VALUES (
+                      $1, now(), $2, $3, $4, $5
+                  )";
+        pg_query_params($conexao, $query, [
+            $id_usuario,
+            get_real_ip(), // Função já existente que retorna o IP real do usuário
+            $id_session,
+            $sistema_operacional,
+            $navegador
+        ]);
         return "in";
     } elseif ($act === 'out') {
         $query = "UPDATE administracao.adm_log_acesso
-                  SET data_saida = now()
+                  SET data_saida = now(), metodo_logout = 'LOGOUT WEB'
                   WHERE fk_usuario = $1 AND session_id = $2 AND data_saida IS NULL";
         pg_query_params($conexao, $query, [$id_usuario, $id_session]);
         return "out";
@@ -191,6 +326,8 @@ function LogAcesso($id_usuario, $id_session, $act, $conexao)
 
     return "ERRO - Verifique os parâmetros";
 }
+
+
 
 function anti_injection($sql)
 {

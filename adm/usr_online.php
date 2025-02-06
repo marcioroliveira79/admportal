@@ -1,152 +1,145 @@
 <?php
 session_start();
+require_once("../module/conecta.php");
+require_once("../module/functions.php");
+
 if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario']) && $acao != null) {
     $acesso = ItemAccess($_SESSION['global_id_perfil'], $acao, $conexao);
     $acao_existe = isFileExists($acao, $_SESSION['global_path']);
-
+    
     if ($acesso == "TELA AUTORIZADA") {
-        // Função para buscar o status dos usuários
-        function getUsersStatus($conexao) {
-            $query = "
-                SELECT 
-                u.id AS usuario_id,
-                u.nome || ' ' || u.sobre_nome AS nome_completo,
-                CASE 
-                    WHEN la.data_saida IS NULL THEN 'online'
-                    ELSE 'offline'
-                END AS status
-            FROM 
-                administracao.adm_usuario u
-            LEFT JOIN LATERAL (
-                SELECT 
-                    data_saida
-                FROM 
-                    administracao.adm_log_acesso la
-                WHERE 
-                    la.fk_usuario = u.id
-                ORDER BY 
-                    la.data_acesso DESC
-                LIMIT 1
-            ) la ON true
-            WHERE 
-                u.ativo = true
-            ORDER BY 
-                status DESC, nome_completo ASC;
-        
-            ";
-
-            $result = pg_query($conexao, $query);
-
-            $users = [];
-            if ($result) {
-                while ($row = pg_fetch_assoc($result)) {
-                    $users[] = $row;
-                }
-            }
-
-            return $users;
-        }
-
-        // Retorna JSON para AJAX se solicitado
-        if (isset($_GET['ajax']) && $_GET['ajax'] == 'true') {
-            header('Content-Type: application/json');
-            $users = getUsersStatus($conexao);
-            echo json_encode($users);
-            exit();
-        }
         ?>
-
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Status dos Usuários</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-            <style>
-                body {
-                    background-color: #f5f5f5;
-                    font-family: Arial, sans-serif;
-                }
-                .table-container {
-                    background-color: #ffffff;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                    padding: 20px;
-                    max-width: 800px;
-                    margin: 40px auto;
-                }
-                .status-icon {
-                    font-size: 18px;
-                    margin-right: 10px;
-                }
-                .status-online {
-                    color: green;
-                }
-                .status-offline {
-                    color: red;
-                }
-            </style>
-            <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-            <script>
-                function loadUserStatus() {
-                    $.ajax({
-                        url: '?ajax=true',
-                        method: 'GET',
-                        dataType: 'json',
-                        success: function(data) {
-                            const tableBody = $('#userStatusTable tbody');
-                            tableBody.empty();
-
-                            data.forEach(user => {
-                                const statusIcon = user.status === 'online' 
-                                    ? '<span class="status-icon status-online">●</span>'
-                                    : '<span class="status-icon status-offline">●</span>';
-
-                                tableBody.append(`
-                                    <tr>
-                                        <td>${statusIcon}${user.nome_completo}</td>
-                                        <td>${user.status === 'online' ? 'Online' : 'Offline'}</td>
-                                    </tr>
-                                `);
-                            });
-                        },
-                        error: function() {
-                            console.error('Erro ao carregar o status dos usuários.');
-                        }
-                    });
-                }
-
-                $(document).ready(function() {
-                    loadUserStatus();
-                    setInterval(loadUserStatus, 20000); // Atualiza a cada 20 segundos
-                });
-            </script>
-        </head>
-        <body>
-        <div class="container">
-            <div class="table-container">
-                <h1 class="text-center">Status dos Usuários</h1>
-                <table class="table table-bordered" id="userStatusTable">
-                    <thead>
-                        <tr>
-                            <th>Nome do Usuário</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Dados serão preenchidos pelo AJAX -->
-                    </tbody>
-                </table>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status dos Usuários</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+        .table-container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 40px auto;
+            max-width: 800px;
+        }
+        .form-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 24px;
+            color: #4a4a4a;
+        }
+        .alert {
+            background-color: #d9edf7;
+            color: #31708f;
+            border: 1px solid #bce8f1;
+            border-radius: 4px;
+            padding: 15px;
+            max-width: 800px;
+            margin: 10px auto;
+            text-align: center;
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+        }
+        .status-indicator .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-indicator.online .dot {
+            background-color: green;
+        }
+        .status-indicator.offline .dot {
+            background-color: red;
+        }
+    </style>
+    <!-- jQuery para AJAX -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Caso haja alguma mensagem para exibir, você pode usar um alerta -->
+        <?php if (isset($mensagem) && !empty($mensagem)): ?>
+            <div class="alert alert-info">
+                <?= htmlspecialchars($mensagem) ?>
             </div>
-        </div>
-        </body>
-        </html>
+        <?php endif; ?>
 
-        <?php
-    } elseif ($acesso != "TELA AUTORIZADA") {
-        @include("html/403.html");
+        <div class="table-container">
+            <div class="form-title">Usuários Conectados</div>
+            <table class="table table-striped" id="statusTable">
+                <thead>
+                    <tr>
+                        <th>Nome Formatado</th>
+                        <th>Data Acesso</th>                        
+                        <th>Data Ping</th>                        
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Os dados serão carregados via AJAX -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        // Função que busca os dados via AJAX
+        function fetchStatus() {
+            $.ajax({
+                url: 'get_status_usuario.php', // script que retorna os dados da view
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        var rows = "";
+                        $.each(response.data, function(index, item) {
+                            var statusIndicator = (item.status === "online") 
+                                ? "<span class='status-indicator online'><span class='dot'></span>Online</span>" 
+                                : "<span class='status-indicator offline'><span class='dot'></span>Offline</span>";
+
+                            rows += "<tr>";
+                            rows += "<td>" + item.nome_formatado + "</td>";
+                            rows += "<td>" + item.data_acesso + "</td>";                            
+                            rows += "<td>" + item.data_ping + "</td>";                            
+                            rows += "<td>" + statusIndicator + "</td>";
+                            rows += "</tr>";
+                        });
+                        $("#statusTable tbody").html(rows);
+                    } else {
+                        console.error("Erro: " + response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro AJAX: " + error);
+                }
+            });
+        }
+        
+        // Chama a função ao carregar a página e a cada 30 segundos
+        $(document).ready(function(){
+            fetchStatus();
+            setInterval(fetchStatus, 30000);
+        });
+    </script>
+</body>
+</html>
+<?php
+    } else {
+        // Se o acesso não for autorizado, exibe a página de erro 403
+        include("html/403.html");
     }
 } else {
     header("Location: login.php");
 }
+?>

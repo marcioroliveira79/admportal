@@ -3,13 +3,17 @@ session_start();
 require_once("../module/conecta.php");
 require_once("../module/functions.php");
 
-// Cria a conexão com o banco de dados
+date_default_timezone_set('America/Sao_Paulo');
+$dataHora = date("d-m-Y H:i:s");
+
 $pg = new portal();
 $conexao = $pg->conectar_obj();
 
 if (!$conexao) {
     die("Erro ao conectar ao banco de dados.");
 }
+
+$responses = []; // Array para armazenar todas as respostas
 
 // No início do ping.php
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST)) {
@@ -21,131 +25,171 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST)) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Exibe os valores recebidos para depuração
     error_log('POST Data: ' . print_r($_POST, true));
 }
 
-// Verifica se os parâmetros foram enviados pelo POST
 if (!isset($_POST['idus']) || !isset($_POST['session'])) {
-    header('Content-Type: application/json');
-    echo json_encode([
+    $responses[] = [
         'success' => false,
         'message' => 'Parâmetros idus ou session não fornecidos.',
-        'ID' => $_POST['idus'],
-        'Session' => $_POST['session']
-    ]);
-    exit();
+        'ID' => $_POST['idus'] ?? null,
+        'Session' => $_POST['session'] ?? null
+    ];
+    // Se desejar interromper a execução após esse erro, use exit()
+    // exit();
 }
 
-// Define as variáveis recebidas
-$id_usuario = (int)$_POST['idus']; // ID do usuário
-$session_id = $_POST['session'];  // ID da sessão
-$ip = $_POST['ip'] ?? $_SERVER['REMOTE_ADDR']; // IP do usuário
+$id_usuario = (int)$_POST['idus'];
+$session_id = $_POST['session'];
+$ip = $_POST['ip'] ?? $_SERVER['REMOTE_ADDR'];
 
-
-// Recupera o tempo de inatividade (em segundos) para considerar o usuário offline
 $tempo_offline = AtributoSistema("parametros_sistema", "tempo_offline", null, $conexao);
+$tempo_sessao = AtributoSistema("parametros_sistema", "time_session", null, $conexao);
 
-
-$query_update_offline = "
-    UPDATE administracao.adm_log_acesso
-    SET data_saida = NOW()
-    WHERE data_ping IS NOT NULL 
-      AND EXTRACT(EPOCH FROM (NOW() - data_ping)) > $1
-      AND data_saida IS NULL
-      AND session_id != $2;
-";
-
-$result_update_offline = pg_query_params($conexao, $query_update_offline, [$tempo_offline, $session_id]);
-
-// Consulta o registro de log de acesso do usuário
 $query = "
     SELECT data_acesso,
-    ROUND(EXTRACT(EPOCH FROM (NOW() - data_ping))) AS diff_seconds
+           CASE 
+             WHEN data_ping IS NULL THEN ROUND(EXTRACT(EPOCH FROM (NOW() - data_acesso))) 
+             ELSE ROUND(EXTRACT(EPOCH FROM (NOW() - data_ping))) 
+           END diff_seconds,
+           id,
+           session_id
     FROM administracao.adm_log_acesso 
-    WHERE fk_usuario = $1 
-      AND session_id = $2       
-    ORDER BY data_acesso DESC 
+    WHERE fk_usuario = $1             
+    ORDER BY id DESC
     LIMIT 1
 ";
-$result = pg_query_params($conexao, $query, [$id_usuario, $session_id]);
-
-header('Content-Type: application/json');
+$result = pg_query_params($conexao, $query, [$id_usuario]);
 
 if (!$result) {
-    echo json_encode([
+    $responses[] = [
         'success' => false,
         'message' => 'Erro na consulta: ' . pg_last_error($conexao),
         'id_usuario' => $id_usuario,
-        'session_id' => $session_id
-    ]);
-    exit();
-}
+        'session_id' => $session_id,
+        'Data Execucao' => $dataHora
+    ];
+} else {
+    $row = pg_fetch_assoc($result);
+    
+    if ($row) {
+        $diff = $row['diff_seconds'];
+        $id_log = $row['id'];
+        $id_session_ultima = $row['session_id'];
 
-$row = pg_fetch_assoc($result);
+        if ($diff > $tempo_offline && $id_session_ultima != $session_id ) {
+            $query_offline = "
+                UPDATE administracao.adm_log_acesso 
+                SET data_saida = now(), data_ping = now(), metodo_logout='TEMPO OFFLINE 1'
+                WHERE fk_usuario = $1 
+                  AND id = $2               
+            ";
+            pg_query_params($conexao, $query_offline, [$id_usuario, $id_log]);
 
-if ($row) {
-    // Calcula a diferença entre o último acesso e o tempo atual
-    $data_acesso_timestamp = strtotime($row['data_acesso']);
-    $diff = $row['diff_seconds'];
-
-    if ($diff > $tempo_offline) {
-        // Marca o usuário como offline
-        $query_offline = "
-            UPDATE administracao.adm_log_acesso 
-            SET data_saida = null, data_ping = now()
-            WHERE fk_usuario = $1 
-              AND session_id = $2 
-              AND data_saida IS NOT NULL
-        ";
-        pg_query_params($conexao, $query_offline, [$id_usuario, $session_id]);
-
-        echo json_encode([
-            'success' => false,
-            'message' => 'Usuário offline.',
-            'id_usuario' => $id_usuario,
-            'session_id' => $session_id,
-            'tempo_offline' => $tempo_offline,
-            'dif' => $diff,
-            'update 1' => 'UP1'
-        ]);
-    } else {
-        // Atualiza o campo data_ping com o horário atual
-        $query_ping = "
-            UPDATE administracao.adm_log_acesso 
-            SET data_ping = now(), ip_acesso = $3 , data_saida = null
-            WHERE fk_usuario = $1 
-              AND session_id = $2 
-              AND data_saida IS NOT NULL
-        ";
-        $result_ping = pg_query_params($conexao, $query_ping, [$id_usuario, $session_id, $ip]);
-
-        if ($result_ping) {
-            echo json_encode([
-                'success' => true,
-                'message' => 'Ping atualizado.',
+            $responses[] = [
+                'success' => false,
+                'message' => 'Usuário offline.',
                 'id_usuario' => $id_usuario,
                 'session_id' => $session_id,
                 'tempo_offline' => $tempo_offline,
                 'dif' => $diff,
-                'update 2' => 'UP2'
-            ]);
+                'ID Log' => $id_log,
+                'update' => 'USUARIO OFFLINE',
+                'Data Execucao' => $dataHora
+            ];
         } else {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Erro ao atualizar ping: ' . pg_last_error($conexao),
-                'id_usuario' => $id_usuario,
-                'session_id' => $session_id
-            ]);
+            $query_ping = "
+                UPDATE administracao.adm_log_acesso 
+                SET data_ping = now(), ip_acesso = $3, data_saida = null
+                WHERE fk_usuario = $1 
+                  AND id = $2               
+            ";
+            $result_ping = pg_query_params($conexao, $query_ping, [$id_usuario, $id_log, $ip]);
+
+            if ($result_ping) {
+                $responses[] = [
+                    'success' => true,
+                    'message' => 'Ping atualizado.',
+                    'id_usuario' => $id_usuario,
+                    'session_id' => $session_id,
+                    'tempo_offline' => $tempo_offline,
+                    'dif' => $diff,
+                    'ID Log' => $id_log,
+                    'update' => 'USUARIO ONLINE',
+                    'Data Execucao' => $dataHora
+                ];
+            } else {
+                $responses[] = [
+                    'success' => false,
+                    'message' => 'Erro ao atualizar ping: ' . pg_last_error($conexao),
+                    'id_usuario' => $id_usuario,
+                    'session_id' => $session_id,
+                    'Data Execucao' => $dataHora
+                ];
+            }
         }
+    } else {
+        $responses[] = [
+            'success' => false,
+            'message' => 'Registro de acesso não encontrado.',
+            'id_usuario' => $id_usuario,
+            'session_id' => $session_id,
+            'Data Execucao' => $dataHora
+        ];
     }
-} else {
-    // Caso nenhum registro seja encontrado
-    echo json_encode([
-        'success' => false,
-        'message' => 'Registro de acesso não encontrado.',
-        'id_usuario' => $id_usuario,
-        'session_id' => $session_id
-    ]);
 }
+
+$query_update_offline = "
+    UPDATE administracao.adm_log_acesso
+    SET data_saida = NOW(), metodo_logout='TEMPO OFFLINE 2'    
+    WHERE 1=1
+      AND (EXTRACT(EPOCH FROM (NOW() - data_ping)) > $1 OR EXTRACT(EPOCH FROM (NOW() - data_acesso)) > $1)
+      AND (data_saida IS NULL AND data_ping IS NULL)  
+";
+
+$result_update_offline = pg_query_params($conexao, $query_update_offline, [$tempo_offline]);
+
+if ($result_update_offline) {
+    $responses[] = [
+        'success' => true,
+        'message' => 'Data saida atualizado.',
+        'tempo_offline' => $tempo_offline,
+        'update' => 'USUARIO OFFLINE'
+    ];
+} else {
+    $responses[] = [
+        'success' => false,
+        'message' => 'Erro ao atualizar ping: ' . pg_last_error($conexao),
+        'update' => 'USUARIO OFFLINE'
+    ];
+}
+
+$query_update_sessao = "
+    UPDATE administracao.adm_log_acesso
+    SET data_saida = NOW(),  metodo_logout='TEMPO SESSAO'      
+    WHERE 1=1
+      AND (EXTRACT(EPOCH FROM (NOW() - data_ping)) > $1 OR EXTRACT(EPOCH FROM (NOW() - data_acesso)) > $1)
+      AND data_saida IS NULL  
+";
+
+$result_update_sessao = pg_query_params($conexao, $query_update_sessao, [$tempo_sessao]);
+
+if ($result_update_sessao) {
+    $responses[] = [
+        'success' => true,
+        'message' => 'Data saida atualizado.',
+        'tempo_sessao' => $tempo_sessao,
+        'update' => 'USUARIO DESCONECTADO'
+    ];
+} else {
+    $responses[] = [
+        'success' => false,
+        'message' => 'Erro ao atualizar ping: ' . pg_last_error($conexao),
+        'update' => 'USUARIO DESCONECTADO'
+    ];
+}
+
+// Envia a resposta única com todos os logs
+header('Content-Type: application/json');
+echo json_encode($responses);
 exit();

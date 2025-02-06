@@ -17,16 +17,47 @@ if (!$conexao) {
 // Verifica a sessão e o tempo de expiração
 if (isset($_SESSION['global_inicio_sessao']) && isset($_SESSION['global_tempo_sessao'])) {
     $tempo_decorrido = time() - $_SESSION['global_inicio_sessao'];
+    
+    
+    if(checkSession($_SESSION['global_id_usuario'], $_SESSION['global_session_id'], $conexao) == 1){
+            
+            updateSessionDataSaida($_SESSION['global_session_id'],$conexao);
+            session_destroy(); // Destroi a sessão
+            setcookie("usuario", "", time() - 3600); // Remove o cookie de usuário
+            echo "<script>
+                    // Verifica se o código está sendo executado dentro de um iframe
+                    if (window.top !== window.self) {
+                        // Redireciona a janela principal para o login
+                        window.top.location.href = 'login.php?errorMessage=Expirou';
+                    } else {
+                        // Redireciona normalmente
+                        window.location.href = 'login.php?errorMessage=Expirou';
+                    }
+                </script>";
+            exit();
 
-    if ($tempo_decorrido > $_SESSION['global_tempo_sessao']) {
-        // Sessão expirou
-        session_destroy(); // Destroi a sessão
-        setcookie("usuario", "", time() - 3600); // Remove o cookie de usuário
-        header("Location: login.php?msg=expirou"); // Redireciona para a tela de login
-        exit;
-    } else {
-        // Atualiza o tempo de início da sessão para mantê-la ativa
-        $_SESSION['global_inicio_sessao'] = time();
+    }else{
+        if ($tempo_decorrido > $_SESSION['global_tempo_sessao']) {
+            // Sessão expirou
+            updateSessionDataSaida($_SESSION['global_session_id'],$conexao);
+            session_destroy(); // Destroi a sessão
+            setcookie("usuario", "", time() - 3600); // Remove o cookie de usuário
+            echo "<script>
+                    // Verifica se o código está sendo executado dentro de um iframe
+                    if (window.top !== window.self) {
+                        // Redireciona a janela principal para o login
+                        window.top.location.href = 'login.php?errorMessage=Expirou';
+                    } else {
+                        // Redireciona normalmente
+                        window.location.href = 'login.php?errorMessage=Expirou';
+                    }
+                </script>";
+            exit();
+
+        } else {
+            // Atualiza o tempo de início da sessão para mantê-la ativa
+            $_SESSION['global_inicio_sessao'] = time();
+        }
     }
 }
 

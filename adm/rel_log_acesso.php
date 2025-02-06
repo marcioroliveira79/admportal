@@ -40,7 +40,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
         // Consulta de logs com filtros
         $query_logs = "
-            SELECT l.id, l.fk_usuario, l.data_acesso, l.data_saida, l.ip_acesso, l.session_id, u.nome
+            SELECT l.id, l.fk_usuario, l.data_acesso, l.data_saida, l.ip_acesso, l.metodo_logout, u.nome
             FROM administracao.adm_log_acesso l
             JOIN administracao.adm_usuario u ON u.id = l.fk_usuario
             WHERE 1=1
@@ -195,7 +195,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                             <th>Data Acesso</th>
                             <th>Data Saída</th>
                             <th>IP Acesso</th>
-                            <th>Session ID</th>
+                            <th>Método Logout</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -207,7 +207,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 <td><?= htmlspecialchars($log['data_acesso']) ?></td>
                                 <td><?= htmlspecialchars($log['data_saida'] ?? '-') ?></td>
                                 <td><?= htmlspecialchars($log['ip_acesso'] ?? '-') ?></td>
-                                <td><?= htmlspecialchars($log['session_id'] ?? '-') ?></td>
+                                <td><?= htmlspecialchars($log['metodo_logout'] ?? '-') ?></td>
                                 <td>
                                     <a href="?acao=<?= htmlspecialchars($acao) ?>&delete_logs=<?= $log['fk_usuario'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja apagar todos os logs deste usuário?')">Apagar Logs</a>
                                 </td>
