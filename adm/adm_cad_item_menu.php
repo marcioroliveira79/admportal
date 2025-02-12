@@ -110,7 +110,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             padding: 20px;
             margin: 40px auto;
-            max-width: 1000px;
+            max-width: 1200px;
         }
         .form-title {
             text-align: center;
@@ -141,7 +141,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             border: 1px solid #bce8f1;
             border-radius: 4px;
             padding: 15px;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 10px auto;
             text-align: center;
         }

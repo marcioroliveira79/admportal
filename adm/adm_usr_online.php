@@ -80,9 +80,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             <table class="table table-striped" id="statusTable">
                 <thead>
                     <tr>
-                        <th>Nome Formatado</th>
+                        <th>Usuário</th>
                         <th>Data Acesso</th>                        
-                        <th>Data Ping</th>                        
+                        <th>Data Ult. Verificação</th>                        
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -97,7 +97,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
         // Função que busca os dados via AJAX
         function fetchStatus() {
             $.ajax({
-                url: 'get_status_usuario.php', // script que retorna os dados da view
+                url: 'adm_usr_online_ajax.php', // script que retorna os dados da view
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {

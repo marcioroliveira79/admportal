@@ -23,8 +23,9 @@ if (isset($_SESSION['global_inicio_sessao']) && isset($_SESSION['global_tempo_se
     if ($tempo_decorrido > $_SESSION['global_tempo_sessao']) {
         // Sessão expirou
         session_destroy(); // Destroi a sessão
-        setcookie("usuario", "", time() - 3600); // Remove o cookie de usuário
-        header("Location: login.php?msg=expirou"); // Redireciona para a tela de login com uma mensagem
+        setcookie("usuario", "", time() - 3600); // Remove o cookie de usuário        
+        $_SESSION['login_error'] = 'Sua sessão expirou';
+        header("Location: login.php"); // Redireciona para a tela de login com uma mensagem
         exit;
     } else {
         // Atualiza o tempo de início da sessão
