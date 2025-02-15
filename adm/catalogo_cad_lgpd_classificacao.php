@@ -109,7 +109,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     font-family: Arial, sans-serif;
                 }
                 .form-container {
-                    max-width: 90%;
+                    max-width: 60%;
                     margin: 40px auto;
                     background-color: #ffffff;
                     border-radius: 10px;
@@ -118,7 +118,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     margin-bottom: 20px;
                 }
                 .alert-custom {
-                    max-width: 90%;
+                    max-width: 60%;
                     margin: 40px auto;
                     background-color: #d1ecf1;
                     color: #0c5460;
@@ -126,7 +126,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     font-weight: bold;
                 }
                 .table-container {
-                    max-width: 90%;
+                    max-width: 60%;
                     margin: 40px auto;
                     background-color: #ffffff;
                     border-radius: 10px;

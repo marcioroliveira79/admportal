@@ -123,6 +123,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         }
                         $mensagem = "Registro atualizado com sucesso!";
                         // Redireciona para recarregar os dados atualizados (PRG)
+                        geraArquivoPrefixo($conexao);
                         header("Location: index.php?acao=" . $acao . "&id=" . $id . "&mensagem=" . urlencode($mensagem));
                         exit;
                     } else {
@@ -148,6 +149,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                             }
                         }
                         $mensagem = "Registro inserido com sucesso!";
+                        geraArquivoPrefixo($conexao);
                         // Redireciona após a inserção
                         header("Location: index.php?acao=" . $acao . "&mensagem=" . urlencode($mensagem));
                         exit;

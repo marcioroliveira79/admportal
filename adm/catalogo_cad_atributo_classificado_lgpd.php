@@ -36,6 +36,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     id,
                     atributo,
                     fk_lgpd_classificacao,
+                    tipo_atributo,
+                    tipo_definicao,
                     TO_CHAR(data_criacao, 'DD-MM-YYYY HH24:MI') AS data_criacao,
                     TO_CHAR(data_alteracao, 'DD-MM-YYYY HH24:MI') AS data_alteracao
                 FROM administracao.catalog_atributo_classificado_lgpd
@@ -53,6 +55,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             // Captura e sanitiza os dados do formulário
             $atributo = htmlspecialchars($_POST['atributo']);
             $fk_lgpd_classificacao = (int) $_POST['fk_lgpd_classificacao'];
+            $tipo_atributo = htmlspecialchars($_POST['tipo_atributo']); // Campo existente
+            $tipo_definicao = htmlspecialchars($_POST['tipo_definicao']); // Novo campo: ATRIBUTO ou DICIONARIO
             $fk_usuario = $_SESSION['global_id_usuario']; // Usuário logado
 
             if ($id > 0) {
@@ -61,12 +65,15 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     UPDATE administracao.catalog_atributo_classificado_lgpd
                     SET atributo = $1,
                         fk_lgpd_classificacao = $2,
-                        fk_usuario_alteracao = $3,
+                        tipo_atributo = $3,
+                        tipo_definicao = $4,
+                        fk_usuario_alteracao = $5,
                         data_alteracao = now()
-                    WHERE id = $4
+                    WHERE id = $6
                 ";
-                $result_update = pg_query_params($conexao, $query_update, [$atributo, $fk_lgpd_classificacao, $fk_usuario, $id]);
+                $result_update = pg_query_params($conexao, $query_update, [$atributo, $fk_lgpd_classificacao, $tipo_atributo, $tipo_definicao, $fk_usuario, $id]);
                 if ($result_update) {
+                    //geraArquivoAtributoLGPD($conexao);
                     $mensagem = "Registro atualizado com sucesso!";
                 } else {
                     $mensagem = "Erro ao atualizar o registro: " . pg_last_error($conexao);
@@ -75,11 +82,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 // Inserção: cadastra um novo registro
                 $query_insert = "
                     INSERT INTO administracao.catalog_atributo_classificado_lgpd
-                        (atributo, fk_lgpd_classificacao, fk_usuario_criador, data_criacao)
-                    VALUES ($1, $2, $3, now())
+                        (atributo, fk_lgpd_classificacao, tipo_atributo, tipo_definicao, fk_usuario_criador, data_criacao)
+                    VALUES ($1, $2, $3, $4, $5, now())
                 ";
-                $result_insert = pg_query_params($conexao, $query_insert, [$atributo, $fk_lgpd_classificacao, $fk_usuario]);
+                $result_insert = pg_query_params($conexao, $query_insert, [$atributo, $fk_lgpd_classificacao, $tipo_atributo, $tipo_definicao, $fk_usuario]);
                 if ($result_insert) {
+                    //geraArquivoAtributoLGPD($conexao);
                     $mensagem = "Registro inserido com sucesso!";
                 } else {
                     $mensagem = "Erro ao inserir o registro: " . pg_last_error($conexao);
@@ -89,18 +97,32 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
         /* ----- PARÂMETROS PARA BUSCA E PAGINAÇÃO ----- */
         $busca = isset($_GET['busca']) ? trim($_GET['busca']) : '';
+        $tipo_atributo_search = isset($_GET['tipo_atributo']) ? trim($_GET['tipo_atributo']) : '';
+        $tipo_definicao_search = isset($_GET['tipo_definicao']) ? trim($_GET['tipo_definicao']) : '';
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         if ($page < 1) { $page = 1; }
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
         if ($limit < 1) { $limit = 10; }
         $offset = ($page - 1) * $limit;
 
-        // Construir cláusula WHERE para busca (por atributo ou classificação)
-        $whereClause = "";
+        // Monta a cláusula WHERE dinamicamente
+        $whereParts = [];
         $params = [];
         if (!empty($busca)) {
-            $whereClause = "WHERE (a.atributo ILIKE $1 OR l.classificacao ILIKE $1)";
+            $whereParts[] = "(a.atributo ILIKE $" . (count($params)+1) . " OR l.classificacao ILIKE $" . (count($params)+1) . ")";
             $params[] = '%' . $busca . '%';
+        }
+        if (!empty($tipo_atributo_search)) {
+            $whereParts[] = "a.tipo_atributo = $" . (count($params)+1);
+            $params[] = $tipo_atributo_search;
+        }
+        if (!empty($tipo_definicao_search)) {
+            $whereParts[] = "a.tipo_definicao = $" . (count($params)+1);
+            $params[] = $tipo_definicao_search;
+        }
+        $whereClause = '';
+        if (!empty($whereParts)) {
+            $whereClause = "WHERE " . implode(" AND ", $whereParts);
         }
 
         // Consulta para contar o total de registros
@@ -123,6 +145,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             SELECT 
                 a.id,
                 a.atributo,
+                a.tipo_atributo,
+                a.tipo_definicao,
                 a.fk_lgpd_classificacao,
                 l.classificacao,
                 TO_CHAR(a.data_criacao, 'DD-MM-YYYY HH24:MI') AS data_criacao
@@ -160,12 +184,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     justify-content: center;
                     margin-top: 20px;
                 }
-                .pagination {
-                    display: flex;
-                    justify-content: center;
-                    margin-top: 20px;
-                }
-                .pagination a {
+                .pagination a, .pagination span {
                     margin: 0 5px;
                     padding: 8px 12px;
                     background-color: #f8f9fa;
@@ -212,16 +231,37 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 .btn-delete:hover {
                     background-color: #c82333;
                 }
-                /* Se desejar ajustar as colunas de Data de Criação e Ações */
+                /* Utilizando porcentagens para distribuir o espaço da tabela */
+                .table-listing th:nth-child(1),
+                .table-listing td:nth-child(1) {
+                    width: 5%;  /* ID */
+                }
+                .table-listing th:nth-child(2),
+                .table-listing td:nth-child(2) {
+                    width: 30%; /* Atributo */
+                }
+                .table-listing th:nth-child(3),
+                .table-listing td:nth-child(3) {
+                    width: 10%; /* Tipo Atributo */
+                }
                 .table-listing th:nth-child(4),
                 .table-listing td:nth-child(4) {
-                    min-width: 150px;
-                    text-align: center;
+                    width: 10%; /* Tipo Definição */
                 }
                 .table-listing th:nth-child(5),
                 .table-listing td:nth-child(5) {
-                    min-width: 120px;
+                    width: 10%; /* LGPD / Classificação */
+                }
+                .table-listing th:nth-child(6),
+                .table-listing td:nth-child(6) {
+                    width: 15%; /* Data de Criação */
+                }
+                .table-listing th:nth-child(7),
+                .table-listing td:nth-child(7) {
+                    width: 15%;  /* Ações */
+                    min-width: 150px;
                     text-align: center;
+                    white-space: nowrap;
                 }
                 body {
                     background-color: #f5f5f5;
@@ -267,7 +307,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 <?php if ($id > 0): ?>
                     <!-- Formulário de Edição -->
                     <div class="form-container">
-                        <h2 class="mb-4">Editar Atributo Classificado LGPD</h2>
+                        <h2 class="mb-4">Editar Atributo LGPD</h2>
                         <form method="POST">
                             <div class="mb-3">
                                 <label for="atributo" class="form-label">Atributo</label>
@@ -286,6 +326,22 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     <?php endif; ?>
                                 </select>
                             </div>
+                            <!-- Combo para Tipo Atributo -->
+                            <div class="mb-3">
+                                <label for="tipo_atributo" class="form-label">Atribuição</label>
+                                <select class="form-select" id="tipo_atributo" name="tipo_atributo" required>
+                                    <option value="INCLUSIVO" <?= (isset($registro['tipo_atributo']) && $registro['tipo_atributo'] == "INCLUSIVO") ? 'selected' : '' ?>>INCLUSIVO</option>
+                                    <option value="EXCLUDENTE" <?= (isset($registro['tipo_atributo']) && $registro['tipo_atributo'] == "EXCLUDENTE") ? 'selected' : '' ?>>EXCLUDENTE</option>
+                                </select>
+                            </div>
+                            <!-- Combo para Tipo Definição -->
+                            <div class="mb-3">
+                                <label for="tipo_definicao" class="form-label">Definição</label>
+                                <select class="form-select" id="tipo_definicao" name="tipo_definicao" required>
+                                    <option value="ATRIBUTO" <?= (isset($registro['tipo_definicao']) && $registro['tipo_definicao'] == "ATRIBUTO") ? 'selected' : '' ?>>ATRIBUTO</option>
+                                    <option value="DICIONARIO" <?= (isset($registro['tipo_definicao']) && $registro['tipo_definicao'] == "DICIONARIO") ? 'selected' : '' ?>>DICIONARIO</option>
+                                </select>
+                            </div>
                             <button type="submit" class="btn btn-success btn-lg">Salvar</button>
                             <a href="index.php?acao=<?= $acao ?>" class="btn btn-success btn-lg">Voltar</a>
                         </form>
@@ -293,7 +349,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 <?php else: ?>
                     <!-- Formulário de Cadastro -->
                     <div class="form-container">
-                        <h2 class="mb-4">Classificado LGPD</h2>
+                        <h2 class="mb-4">Cadastrar atributo LGPD</h2>
                         <form method="POST">
                             <div class="mb-3">
                                 <label for="atributo" class="form-label">Atributo</label>
@@ -312,6 +368,22 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     <?php endif; ?>
                                 </select>
                             </div>
+                            <!-- Combo para Tipo Atributo -->
+                            <div class="mb-3">
+                                <label for="tipo_atributo" class="form-label">Atribuição</label>
+                                <select class="form-select" id="tipo_atributo" name="tipo_atributo" required>
+                                    <option value="INCLUSIVO" selected>INCLUSIVO</option>
+                                    <option value="EXCLUDENTE">EXCLUDENTE</option>
+                                </select>
+                            </div>
+                            <!-- Combo para Tipo Definição -->
+                            <div class="mb-3">
+                                <label for="tipo_definicao" class="form-label">Definição</label>
+                                <select class="form-select" id="tipo_definicao" name="tipo_definicao" required>
+                                    <option value="ATRIBUTO" selected>ATRIBUTO</option>
+                                    <option value="DICIONARIO">DICIONARIO</option>
+                                </select>
+                            </div>
                             <button type="submit" class="btn btn-success btn-lg">Cadastrar</button>
                         </form>
                     </div>
@@ -320,10 +392,26 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     <div class="form-container">
                         <form method="GET" id="formBusca" class="row g-3">
                             <input type="hidden" name="acao" value="<?= htmlspecialchars($acao) ?>">
-                            <div class="col-md-6">
+                            <div class="col-md-3">
                                 <input type="text" class="form-control" name="busca" placeholder="Buscar por atributo ou classificação" value="<?= htmlspecialchars($busca) ?>">
                             </div>
-                            <div class="col-md-3">
+                            <!-- Combo para selecionar Tipo Atributo na busca -->
+                            <div class="col-md-2">
+                                <select name="tipo_atributo" class="form-select">
+                                    <option value="">Todos os tipos de atributo</option>
+                                    <option value="INCLUSIVO" <?= ($tipo_atributo_search == "INCLUSIVO") ? 'selected' : '' ?>>INCLUSIVO</option>
+                                    <option value="EXCLUDENTE" <?= ($tipo_atributo_search == "EXCLUDENTE") ? 'selected' : '' ?>>EXCLUDENTE</option>
+                                </select>
+                            </div>
+                            <!-- Combo para selecionar Tipo Definição na busca -->
+                            <div class="col-md-2">
+                                <select name="tipo_definicao" class="form-select">
+                                    <option value="">Todos os tipos de definição</option>
+                                    <option value="ATRIBUTO" <?= ($tipo_definicao_search == "ATRIBUTO") ? 'selected' : '' ?>>ATRIBUTO</option>
+                                    <option value="DICIONARIO" <?= ($tipo_definicao_search == "DICIONARIO") ? 'selected' : '' ?>>DICIONARIO</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
                                 <select name="limit" class="form-select">
                                     <option value="5" <?= ($limit == 5 ? 'selected' : '') ?>>5 registros</option>
                                     <option value="10" <?= ($limit == 10 ? 'selected' : '') ?>>10 registros</option>
@@ -345,7 +433,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 <tr>
                                     <th>ID</th>
                                     <th>Atributo</th>
-                                    <th>Classificação LGPD</th>
+                                    <th>Atribuição</th>
+                                    <th>Definição</th>
+                                    <th>LGPD</th>
                                     <th>Data de Criação</th>
                                     <th>Ações</th>
                                 </tr>
@@ -355,17 +445,19 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     <tr>
                                         <td><?= htmlspecialchars($row['id']) ?></td>
                                         <td><?= htmlspecialchars($row['atributo']) ?></td>
+                                        <td><?= htmlspecialchars($row['tipo_atributo']) ?></td>
+                                        <td><?= htmlspecialchars($row['tipo_definicao']) ?></td>
                                         <td><?= htmlspecialchars($row['classificacao']) ?></td>
                                         <td><?= htmlspecialchars($row['data_criacao']) ?></td>
                                         <td>
-                                            <a href="index.php?acao=<?= $acao ?>&id=<?= $row['id'] ?>" class="btn btn-sm btn-edit">Editar</a>
-                                            <a href="index.php?acao=<?= $acao ?>&delete_id=<?= $row['id'] ?>" class="btn btn-sm btn-delete"  onclick="return confirm('Tem certeza que deseja excluir este registro?')">Excluir</a>
+                                            <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&tipo_atributo=<?= urlencode($tipo_atributo_search) ?>&tipo_definicao=<?= urlencode($tipo_definicao_search) ?>&limit=<?= $limit ?>&page=<?= $page ?>&id=<?= $row['id'] ?>" class="btn btn-sm btn-edit">Editar</a>
+                                            <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&tipo_atributo=<?= urlencode($tipo_atributo_search) ?>&tipo_definicao=<?= urlencode($tipo_definicao_search) ?>&limit=<?= $limit ?>&page=<?= $page ?>&delete_id=<?= $row['id'] ?>" class="btn btn-sm btn-delete" onclick="return confirm('Tem certeza que deseja excluir este registro?')">Excluir</a>
                                         </td>
                                     </tr>
                                 <?php endwhile; ?>
                                 <?php if (pg_num_rows($result_list) == 0): ?>
                                     <tr>
-                                        <td colspan="5" class="text-center">Nenhum registro encontrado.</td>
+                                        <td colspan="7" class="text-center">Nenhum registro encontrado.</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
@@ -374,15 +466,25 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         <!-- Paginação -->
                         <div class="pagination">
                             <?php if ($page > 1): ?>
-                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&limit=<?= $limit ?>&page=<?= $page - 1 ?>">&laquo; Anterior</a>
+                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&tipo_atributo=<?= urlencode($tipo_atributo_search) ?>&tipo_definicao=<?= urlencode($tipo_definicao_search) ?>&limit=<?= $limit ?>&page=<?= $page - 1 ?>">&laquo; Anterior</a>
                             <?php endif; ?>
 
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&limit=<?= $limit ?>&page=<?= $i ?>" class="<?= ($i == $page) ? 'active' : '' ?>"><?= $i ?></a>
+                            <?php
+                            // Exibe páginas de 1 a 10; se houver mais, exibe "..." e a última página
+                            $maxPagesToShow = 10;
+                            $endPage = ($total_pages > $maxPagesToShow) ? $maxPagesToShow : $total_pages;
+                            for ($i = 1; $i <= $endPage; $i++):
+                            ?>
+                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&tipo_atributo=<?= urlencode($tipo_atributo_search) ?>&tipo_definicao=<?= urlencode($tipo_definicao_search) ?>&limit=<?= $limit ?>&page=<?= $i ?>" class="<?= ($i == $page) ? 'active' : '' ?>"><?= $i ?></a>
                             <?php endfor; ?>
+                            
+                            <?php if ($total_pages > $maxPagesToShow): ?>
+                                <span>...</span>
+                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&tipo_atributo=<?= urlencode($tipo_atributo_search) ?>&tipo_definicao=<?= urlencode($tipo_definicao_search) ?>&limit=<?= $limit ?>&page=<?= $total_pages ?>"><?= $total_pages ?></a>
+                            <?php endif; ?>
 
                             <?php if ($page < $total_pages): ?>
-                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&limit=<?= $limit ?>&page=<?= $page + 1 ?>">Próximo &raquo;</a>
+                                <a href="index.php?acao=<?= $acao ?>&busca=<?= urlencode($busca) ?>&tipo_atributo=<?= urlencode($tipo_atributo_search) ?>&tipo_definicao=<?= urlencode($tipo_definicao_search) ?>&limit=<?= $limit ?>&page=<?= $page + 1 ?>">Próximo &raquo;</a>
                             <?php endif; ?>
                         </div>
                     </div>

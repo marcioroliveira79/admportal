@@ -369,3 +369,74 @@ function AtributoSistema($nome_tabela, $nome_item, $id_item, $conexao) {
 
     return "Você deve passar o nome ou o ID do item!";
 }
+function geraArquivoPrefixo($conexao) {
+    $query_json = "
+      WITH cte AS (
+          SELECT 
+            '\"' || p.prefixo || '\": { \"tipo\": [' ||
+              string_agg('\"' || upper(td.tipo) || '\"', ', ' ORDER BY td.tipo)
+            || '], \"comentario\": \"' || p.dominio || ' - ' || p.comentario || '\" }' AS linha,
+            row_number() OVER (ORDER BY p.prefixo) AS rn,
+            count(*) OVER () AS total
+          FROM administracao.catalog_prefixo_tipo p
+          LEFT JOIN administracao.catalog_ass_prefixo_tipo ass 
+            ON ass.fk_catalogo_prefixo_tipo = p.id
+          LEFT JOIN administracao.catalog_tipo_dado td 
+            ON ass.fk_catalogo_tipo_dado = td.id
+          GROUP BY 
+            p.prefixo, 
+            p.dominio, 
+            p.comentario
+      ), linhas AS (
+          SELECT linha || CASE WHEN rn < total THEN ',' ELSE '' END AS resultado
+          FROM cte
+      )
+      SELECT '{' || string_agg(resultado, E'\n') || '}' AS final_result
+      FROM linhas;
+    ";
+
+    $result_json = pg_query($conexao, $query_json);
+    if ($result_json) {
+        // Busca apenas a primeira linha (única) com a coluna final_result
+        $row = pg_fetch_assoc($result_json);
+        $finalResult = $row['final_result'];
+
+        // Cria a pasta "data" se não existir
+        if (!file_exists('data')) {
+            mkdir('data', 0777, true);
+        }
+
+        // Salva o JSON no arquivo
+        file_put_contents('data/prefixo.txt', $finalResult);
+    }
+}
+
+
+function geraArquivoPalavraLGPD($conexao) {
+    $query_json = "
+    WITH cte AS (
+        SELECT 
+          '\"' || lg.palavra || '\": \"' || clg.classificacao || '\"' AS linha,
+          row_number() OVER (ORDER BY lg.palavra) AS rn,
+          count(*) OVER () AS total
+        FROM administracao.catalog_dicionario_classificado_lgpd lg
+        LEFT JOIN administracao.catalog_lgpd_classificacao clg 
+          ON lg.fk_lgpd_classificacao = clg.id
+      )
+      SELECT '{' || string_agg(linha || CASE WHEN rn < total THEN ',' ELSE '' END, E'\n') || '}' AS final_result
+      FROM cte;
+    ";
+
+    $result_json = pg_query($conexao, $query_json);
+    if ($result_json) {
+        // Busca apenas a primeira linha (única) com a coluna final_result
+        $row = pg_fetch_assoc($result_json);
+        $finalResult = $row['final_result'];
+        // Cria a pasta "data" se não existir
+        if (!file_exists('data')) {
+            mkdir('data', 0777, true);
+        }
+        file_put_contents('data/lgpd.txt', $finalResult);
+    }
+}
+?>
