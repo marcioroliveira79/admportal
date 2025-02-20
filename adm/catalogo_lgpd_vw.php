@@ -155,7 +155,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             /* Deixa botão disabled mais opaco */
             .btn[disabled],
             .btn.disabled {
-                opacity: 0.5;
+                opacity: 0.1; /* Ajuste a opacidade conforme desejar */
                 pointer-events: none;
             }
 
@@ -163,6 +163,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             .form-select.form-select-sm {
                 font-size: 11px; /* Ajuste conforme desejar */
             }
+
+            /* (Opcional) se quiser diminuir também o tamanho das labels
+            .form-label {
+                font-size: 11px;
+            }
+            */
             </style>
         </head>
         <body>
@@ -178,13 +184,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                 <!-- Formulário de Filtros com 4 combos -->
                 <div class="form-container">
-                    <div class="form-title"><h3>LGPD Apuração</h3></div>
+                    <div class="form-title"><h3>Marcação de atributos LGPD</h3></div>
                     <form id="filterForm" method="GET" class="row g-3">
                         <input type="hidden" name="acao" value="<?= htmlspecialchars($acao) ?>">
                         
                         <div class="col-md-3">
                             <label for="ambiente" class="form-label">Ambiente</label>
-                            <select name="ambiente" id="ambiente" class="form-select" required>
+                            <select name="ambiente" id="ambiente" class="form-select form-select-sm" required>
                                 <option value="">Selecione um Ambiente</option>
                                 <?php if ($ambientes): ?>
                                     <?php foreach ($ambientes as $amb): ?>
@@ -196,21 +202,21 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         
                         <div class="col-md-3">
                             <label for="service_name" class="form-label">Service Name</label>
-                            <select name="service_name" id="service_name" class="form-select" required disabled>
+                            <select name="service_name" id="service_name" class="form-select form-select-sm" required disabled>
                                 <option value="">Selecione o Service Name</option>
                             </select>
                         </div>
                         
                         <div class="col-md-3">
                             <label for="schema_name" class="form-label">Schema</label>
-                            <select name="schema_name" id="schema_name" class="form-select" required disabled>
+                            <select name="schema_name" id="schema_name" class="form-select form-select-sm" required disabled>
                                 <option value="">Selecione o Schema</option>
                             </select>
                         </div>
                         
                         <div class="col-md-3">
                             <label for="table_name" class="form-label">Tabela</label>
-                            <select name="table_name" id="table_name" class="form-select" required disabled>
+                            <select name="table_name" id="table_name" class="form-select form-select-sm" required disabled>
                                 <option value="">Selecione a Tabela</option>
                             </select>
                         </div>
@@ -405,6 +411,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     var acaoAtual      = item.acao_lgpd || '';
                                     var infoAtual      = item.lgpd_informacao || '';
 
+                                    // MONTA A CÉLULA DA COLUNA COM title
+                                    var colunaTd = '<td title="'+ (item.column_name || '') +'">'+ (item.column_name || '') +'</td>';
+
                                     // Monta combo de Ação (tamanho menor com .form-select-sm)
                                     var selectAcao = '<select class="form-select form-select-sm select-acao-linha">';
                                     if(acaoAtual){
@@ -461,12 +470,14 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                                      'data-host_name="'+ hostName +'">Inserir</button>';
                                     }
 
+                                    // Monta a linha completa
                                     var row = '<tr>'+
-                                        '<td>'+ (item.column_name || '') +'</td>'+
+                                        colunaTd +                                        // Nome da coluna com tooltip
                                         '<td>'+ (item.data_type || '') +'</td>'+
                                         '<td>'+ (item.data_length || '') +'</td>'+
                                         '<td>'+ aceitaNull +'</td>'+
                                         '<td>'+ chave +'</td>'+
+                                        // Comentário com tooltip
                                         '<td title="'+ comentario +'">'+ comentario +'</td>'+
                                         '<td>'+ selectAcao +'</td>'+
                                         '<td>'+ selectInfo +'</td>'+
@@ -632,7 +643,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                            if(response.success){
                                alert(response.message);
                                // Volta para "Inserir"
-                               // Mas precisamos preservar data_base, host_name, column_comment
                                btn.removeClass('btn-danger remover-btn')
                                   .addClass('btn-success inserir-btn')
                                   .text('Inserir')
@@ -662,6 +672,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
             </script>
         </body>
+        <br>
+        <br>
+        <br>
         </html>
         <?php
     } elseif ($acesso != "TELA AUTORIZADA") {
