@@ -47,7 +47,7 @@ if ($action == 'getServiceNames') {
     $schema_name = $_GET['schema_name'];
     $table_name = $_GET['table_name'];
     // A consulta agora retorna também table_comments e column_comments
-    $query = "SELECT table_comments, column_name, data_type, data_length, column_comments 
+    $query = "SELECT table_comments, column_name, data_type, data_length, column_comments, is_nullable, is_pk, is_fk  
               FROM administracao.catalog_table_content 
               WHERE ambiente = $1 AND service_name = $2 AND schema_name = $3 AND table_name = $4 
               ORDER BY column_id";

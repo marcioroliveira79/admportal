@@ -9,6 +9,7 @@ require_once("../module/functions.php");
 // Cria a conexão uma vez
 $pg = new portal();
 $conexao = $pg->conectar_obj();
+pg_set_client_encoding($conexao, "UTF8");
 
 if (!$conexao) {
     die("Erro ao conectar ao banco de dados.");

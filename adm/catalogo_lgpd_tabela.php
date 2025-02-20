@@ -110,6 +110,25 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
+                /* Reduz a largura da coluna "NULL" (4ª coluna) */
+                #attributesTable th:nth-child(4),
+                #attributesTable td:nth-child(4) {
+                    width: 60px !important;
+                    max-width: 60px !important;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                /* Reduz a largura da coluna "CHAVE" (5ª coluna) */
+                #attributesTable th:nth-child(5),
+                #attributesTable td:nth-child(5) {
+                    width: 60px !important;
+                    max-width: 60px !important;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
             </style>
         </head>
         <body>
@@ -178,6 +197,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 <th>COLUNA</th>
                                 <th>TIPO</th>
                                 <th>TAMANHO</th>
+                                <th>NULL</th>
+                                <th>CHAVE</th>
                                 <th>COMENTÁRIO</th>
                             </tr>
                         </thead>
@@ -322,18 +343,34 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                                 $.each(response.data, function(index, item){
                                     var comentario = item.column_comments ? item.column_comments : '';
+
+                                    // Coluna "ACEITA NULL"
+                                    var aceitaNull = item.is_nullable;
+
+                                    // Coluna "CHAVE"
+                                    // Se is_pk === 'Y', exibe "PK"; senão se is_fk === 'Y', exibe "FK"
+                                    // Se ambos forem 'Y', prioriza "PK"
+                                    var chave = '';
+                                    if(item.is_pk === 'Y'){
+                                        chave = 'PK';
+                                    } else if(item.is_fk === 'Y'){
+                                        chave = 'FK';
+                                    }
+
                                     var row = '<tr>'+
                                         '<td>'+ item.column_name +'</td>'+
                                         '<td>'+ item.data_type +'</td>'+
                                         '<td>'+ item.data_length +'</td>'+
+                                        '<td>'+ aceitaNull +'</td>'+
+                                        '<td>'+ chave +'</td>'+
                                         '<td>'+ comentario +'</td>'+
-                                        '</tr>';
+                                    '</tr>';
                                     $('#attributesTable tbody').append(row);
                                 });
                                 $('#totalResults').html('Total de resultados: ' + response.data.length);
                             } else {
                                 $('#tableComment').html("Sem comentário");
-                                $('#attributesTable tbody').html('<tr><td colspan="4" class="text-center">Nenhum dado encontrado.</td></tr>');
+                                $('#attributesTable tbody').html('<tr><td colspan="6" class="text-center">Nenhum dado encontrado.</td></tr>');
                                 $('#totalResults').html('Total de resultados: 0');
                             }
                             
@@ -351,10 +388,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
             </script>
         </body>
-        <BR>
-        <BR>
-        <BR>
-        <BR>
+        <br><br><br><br>
         </html>
         <?php
     } elseif ($acesso != "TELA AUTORIZADA") {
