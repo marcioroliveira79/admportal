@@ -7,23 +7,27 @@ $conexao = $pg->conectar_obj();
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $response = ['success' => false, 'data' => []];
 
-// AÇÕES EXISTENTES (getServiceNames, getSchemas, getTables, getAttributes)
+// 1) getServiceNames
 if ($action == 'getServiceNames') {
-    $ambiente = $_GET['ambiente'];
+    $ambiente = $_GET['ambiente'] ?? '';
     $query = "SELECT DISTINCT service_name 
               FROM administracao.catalog_vw_lgpd_marcacao
               WHERE ambiente = $1
               ORDER BY service_name";
     $result = pg_query_params($conexao, $query, [$ambiente]);
     if ($result) {
+        $arr = [];
         while ($row = pg_fetch_assoc($result)) {
-            $response['data'][] = $row['service_name'];
+            $arr[] = $row['service_name'];
         }
+        $response['data'] = $arr;
         $response['success'] = true;
     }
-} elseif ($action == 'getSchemas') {
-    $ambiente = $_GET['ambiente'];
-    $service_name = $_GET['service_name'];
+}
+// 2) getSchemas
+elseif ($action == 'getSchemas') {
+    $ambiente = $_GET['ambiente'] ?? '';
+    $service_name = $_GET['service_name'] ?? '';
     $query = "SELECT DISTINCT schema_name
               FROM administracao.catalog_vw_lgpd_marcacao
               WHERE ambiente = $1 
@@ -31,15 +35,19 @@ if ($action == 'getServiceNames') {
               ORDER BY schema_name";
     $result = pg_query_params($conexao, $query, [$ambiente, $service_name]);
     if ($result) {
+        $arr = [];
         while ($row = pg_fetch_assoc($result)) {
-            $response['data'][] = $row['schema_name'];
+            $arr[] = $row['schema_name'];
         }
+        $response['data'] = $arr;
         $response['success'] = true;
     }
-} elseif ($action == 'getTables') {
-    $ambiente = $_GET['ambiente'];
-    $service_name = $_GET['service_name'];
-    $schema_name = $_GET['schema_name'];
+}
+// 3) getTables
+elseif ($action == 'getTables') {
+    $ambiente = $_GET['ambiente'] ?? '';
+    $service_name = $_GET['service_name'] ?? '';
+    $schema_name = $_GET['schema_name'] ?? '';
     $query = "SELECT DISTINCT table_name
               FROM administracao.catalog_vw_lgpd_marcacao
               WHERE ambiente = $1
@@ -48,16 +56,20 @@ if ($action == 'getServiceNames') {
               ORDER BY table_name";
     $result = pg_query_params($conexao, $query, [$ambiente, $service_name, $schema_name]);
     if ($result) {
+        $arr = [];
         while ($row = pg_fetch_assoc($result)) {
-            $response['data'][] = $row['table_name'];
+            $arr[] = $row['table_name'];
         }
+        $response['data'] = $arr;
         $response['success'] = true;
     }
-} elseif ($action == 'getAttributes') {
-    $ambiente = $_GET['ambiente'];
-    $service_name = $_GET['service_name'];
-    $schema_name = $_GET['schema_name'];
-    $table_name = $_GET['table_name'];
+}
+// 4) getAttributes
+elseif ($action == 'getAttributes') {
+    $ambiente = $_GET['ambiente'] ?? '';
+    $service_name = $_GET['service_name'] ?? '';
+    $schema_name = $_GET['schema_name'] ?? '';
+    $table_name = $_GET['table_name'] ?? '';
 
     $query = "
         SELECT
@@ -71,9 +83,15 @@ if ($action == 'getServiceNames') {
             is_fk,
             acao_lgpd,
             lgpd_informacao,
+            acao_lgpd_atual,        -- NOVO
+            lgpd_informacao_atual,  -- NOVO
             fk_lgpd_marcacao,
             data_base,
-            host_name
+            host_name,
+            atributo_relacionado,   -- NOVO
+            palavra_relacionada,    -- NOVO
+            nome_usuario_criador,   -- se existir na view
+            data_criacao_marcacao   -- se existir na view
         FROM administracao.catalog_vw_lgpd_marcacao
         WHERE ambiente = $1
           AND service_name = $2
@@ -81,16 +99,18 @@ if ($action == 'getServiceNames') {
           AND table_name = $4
         ORDER BY column_id
     ";
-    $result = pg_query_params($conexao, $query, [$ambiente, $service_name, $schema_name, $table_name]);
+    $params = [$ambiente, $service_name, $schema_name, $table_name];
+    $result = pg_query_params($conexao, $query, $params);
     if ($result) {
+        $arr = [];
         while ($row = pg_fetch_assoc($result)) {
-            $response['data'][] = $row;
+            $arr[] = $row;
         }
+        $response['data'] = $arr;
         $response['success'] = true;
     }
 }
-
-// NOVA AÇÃO getAcoesInfos (join de catalog_acao_motivo_lgpd e catalog_lgpd_classificacao)
+// 5) getAcoesInfos
 elseif ($action == 'getAcoesInfos') {
     $query = "
         SELECT 
@@ -105,37 +125,38 @@ elseif ($action == 'getAcoesInfos') {
     ";
     $result = pg_query($conexao, $query);
     if ($result) {
-        $lista = [];
+        $data = [];
         while ($row = pg_fetch_assoc($result)) {
-            $lista[] = [
+            $data[] = [
                 'acao' => $row['acao'],
                 'info' => $row['info']
             ];
         }
-        $response['data'] = $lista;
+        $response['data'] = $data;
         $response['success'] = true;
     }
 }
-
-// INSERIR
+// 6) insertAttribute
 elseif ($action == 'insertAttribute') {
-    $ambiente         = $_GET['ambiente'];
-    $service_name     = $_GET['service_name'];
-    $schema_name      = $_GET['schema_name'];
-    $table_name       = $_GET['table_name'];
-    $column_name      = $_GET['column_name'];
-    $acao_lgpd        = $_GET['acao_lgpd'];
-    $lgpd_informacao  = $_GET['lgpd_informacao'];
-    $column_comment   = isset($_GET['column_comment']) ? $_GET['column_comment'] : '';
-    $data_base        = isset($_GET['data_base']) ? $_GET['data_base'] : '';
-    $host_name        = isset($_GET['host_name']) ? $_GET['host_name'] : '';
+    $ambiente        = $_GET['ambiente'] ?? '';
+    $service_name    = $_GET['service_name'] ?? '';
+    $schema_name     = $_GET['schema_name'] ?? '';
+    $table_name      = $_GET['table_name'] ?? '';
+    $column_name     = $_GET['column_name'] ?? '';
+    $acao_lgpd       = $_GET['acao_lgpd'] ?? '';
+    $lgpd_informacao = $_GET['lgpd_informacao'] ?? '';
+    $column_comment  = $_GET['column_comment'] ?? '';
+    $data_base       = $_GET['data_base'] ?? '';
+    $host_name       = $_GET['host_name'] ?? '';
 
-    $fk_usuario_criador = isset($_SESSION['global_id_usuario']) ? $_SESSION['global_id_usuario'] : null;
+    $fk_usuario_criador = $_SESSION['global_id_usuario'] ?? null;
 
-    $insertQuery = "INSERT INTO administracao.catalog_lgpd_marcacao 
+    $insertQuery = "
+        INSERT INTO administracao.catalog_lgpd_marcacao 
         (ambiente, data_base, host_name, service_name, schema_name, table_name, column_name, column_comment, acao_lgpd, lgpd_informacao, fk_usuario_criador)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)";
-    $result = pg_query_params($conexao, $insertQuery, [
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    ";
+    $params = [
         $ambiente,
         $data_base,
         $host_name,
@@ -147,7 +168,8 @@ elseif ($action == 'insertAttribute') {
         $acao_lgpd,
         $lgpd_informacao,
         $fk_usuario_criador
-    ]);
+    ];
+    $result = pg_query_params($conexao, $insertQuery, $params);
     if ($result) {
         $response['success'] = true;
         $response['message'] = "Registro inserido com sucesso.";
@@ -155,25 +177,27 @@ elseif ($action == 'insertAttribute') {
         $response['message'] = pg_last_error($conexao);
     }
 }
-// REMOVER
+// 7) removeAttribute
 elseif ($action == 'removeAttribute') {
-    $ambiente      = $_GET['ambiente'];
-    $data_base     = $_GET['data_base'];
-    $host_name     = $_GET['host_name'];
-    $service_name  = $_GET['service_name'];
-    $schema_name   = $_GET['schema_name'];
-    $table_name    = $_GET['table_name'];
-    $column_name   = $_GET['column_name'];
+    $ambiente    = $_GET['ambiente'] ?? '';
+    $data_base   = $_GET['data_base'] ?? '';
+    $host_name   = $_GET['host_name'] ?? '';
+    $service_name= $_GET['service_name'] ?? '';
+    $schema_name = $_GET['schema_name'] ?? '';
+    $table_name  = $_GET['table_name'] ?? '';
+    $column_name = $_GET['column_name'] ?? '';
 
-    $deleteQuery = "DELETE FROM administracao.catalog_lgpd_marcacao 
+    $deleteQuery = "
+        DELETE FROM administracao.catalog_lgpd_marcacao 
          WHERE ambiente = $1
            AND data_base = $2
            AND host_name = $3
            AND service_name = $4
            AND schema_name = $5
            AND table_name = $6
-           AND column_name = $7";
-    $result = pg_query_params($conexao, $deleteQuery, [
+           AND column_name = $7
+    ";
+    $params = [
         $ambiente,
         $data_base,
         $host_name,
@@ -181,7 +205,8 @@ elseif ($action == 'removeAttribute') {
         $schema_name,
         $table_name,
         $column_name
-    ]);
+    ];
+    $result = pg_query_params($conexao, $deleteQuery, $params);
     if ($result) {
         $response['success'] = true;
         $response['message'] = "Registro removido com sucesso.";

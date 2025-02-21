@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// Recupera a variável $acao, se estiver definida via GET.
+// Recupera a variável $acao se vier via GET.
 $acao = isset($_GET['acao']) ? $_GET['acao'] : null;
 
 // Verifica se o usuário está logado e se a variável $acao está definida
@@ -58,7 +58,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             #attributeListContainer {
                 background-color: #ffffff;
                 border-radius: 10px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                 margin: 20px auto 40px auto;
                 padding: 20px;
                 width: 100%;
@@ -96,6 +96,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             #attributesTable tr:hover {
                 background-color: #f1f1f1;
             }
+
+            /* Largura das colunas */
             #attributesTable th:nth-child(1),
             #attributesTable td:nth-child(1) {
                 width: 180px !important;
@@ -152,23 +154,26 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 padding: 5px;
             }
 
-            /* Deixa botão disabled mais opaco */
             .btn[disabled],
             .btn.disabled {
-                opacity: 0.1; /* Ajuste a opacidade conforme desejar */
+                opacity: 0.1; 
                 pointer-events: none;
             }
-
-            /* Diminui a fonte dos selects (combos) */
             .form-select.form-select-sm {
-                font-size: 11px; /* Ajuste conforme desejar */
-            }
-
-            /* (Opcional) se quiser diminuir também o tamanho das labels
-            .form-label {
                 font-size: 11px;
             }
-            */
+
+            .coluna-cell {
+                position: relative;
+            }
+            .expand-icon {
+                cursor: pointer;
+                margin-right: 5px;
+                font-weight: bold;
+            }
+            tr.shown .expand-icon {
+                background: #e9ecef;
+            }
             </style>
         </head>
         <body>
@@ -187,7 +192,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     <div class="form-title"><h3>Marcação de atributos LGPD</h3></div>
                     <form id="filterForm" method="GET" class="row g-3">
                         <input type="hidden" name="acao" value="<?= htmlspecialchars($acao) ?>">
-                        
+
                         <div class="col-md-3">
                             <label for="ambiente" class="form-label">Ambiente</label>
                             <select name="ambiente" id="ambiente" class="form-select form-select-sm" required>
@@ -251,16 +256,29 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             </div>
 
             <script>
+            // Exemplo de formatação de data/hora
+            function formatDateTime(dateString) {
+                if(!dateString) return '';
+                var d = new Date(dateString);
+                if(isNaN(d.getTime())) return dateString;
+                var dd = String(d.getDate()).padStart(2,'0');
+                var mm = String(d.getMonth()+1).padStart(2,'0');
+                var yyyy = d.getFullYear();
+                var hh = String(d.getHours()).padStart(2,'0');
+                var mn = String(d.getMinutes()).padStart(2,'0');
+                return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mn;
+            }
+
             $(document).ready(function(){
 
-                // 1) Carregamento dos combos de ambiente, service, schema, table
+                // 1) Carrega combos
                 $('#ambiente').on('change', function(){
                     var ambiente = $(this).val();
                     $('#service_name').html('<option value="">Selecione o Service Name</option>').prop('disabled', true);
                     $('#schema_name').html('<option value="">Selecione o Schema</option>').prop('disabled', true);
                     $('#table_name').html('<option value="">Selecione a Tabela</option>').prop('disabled', true);
                     $('#btnConsultar').prop('disabled', true);
-                    
+
                     if(ambiente){
                         $.ajax({
                             url: 'catalogo_lgpd_vw_ajax.php',
@@ -286,7 +304,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     $('#schema_name').html('<option value="">Selecione o Schema</option>').prop('disabled', true);
                     $('#table_name').html('<option value="">Selecione a Tabela</option>').prop('disabled', true);
                     $('#btnConsultar').prop('disabled', true);
-                    
+
                     if(service_name){
                         $.ajax({
                             url: 'catalogo_lgpd_vw_ajax.php',
@@ -312,7 +330,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     var schema_name = $(this).val();
                     $('#table_name').html('<option value="">Selecione a Tabela</option>').prop('disabled', true);
                     $('#btnConsultar').prop('disabled', true);
-                    
+
                     if(schema_name){
                         $.ajax({
                             url: 'catalogo_lgpd_vw_ajax.php',
@@ -340,7 +358,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                 });
 
-                // 2) Carregar relação Ação-Info (getAcoesInfos)
+                // 2) Carrega Ação-Info
                 var acoesInfosMap = {};
                 var listaAcoesUnicas = [];
 
@@ -368,7 +386,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                 });
 
-                // 3) Botão Consultar -> getAttributes
+                // 3) Consultar
                 $('#btnConsultar').on('click', function(){
                     var ambiente = $('#ambiente').val();
                     var service_name = $('#service_name').val();
@@ -397,24 +415,41 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 $('#tableComment').html(tableComment);
 
                                 $.each(response.data, function(index, item){
-                                    var comentario     = item.column_comments || '';
-                                    var aceitaNull     = item.is_nullable || '';
-                                    var chave          = '';
+                                    var comentario    = item.column_comments || '';
+                                    var aceitaNull    = item.is_nullable || '';
+                                    var chave         = '';
                                     if(item.is_pk === 'Y'){ chave = 'PK'; }
                                     else if(item.is_fk === 'Y'){ chave = 'FK'; }
 
-                                    // Vamos capturar data_base, host_name e column_comment
-                                    var dataBase       = item.data_base || '';
-                                    var hostName       = item.host_name || '';
-                                    var columnComment  = comentario; // Ou item.column_comments
+                                    var dataBase      = item.data_base || '';
+                                    var hostName      = item.host_name || '';
+                                    var columnComment = comentario;
+                                    var acaoAtual     = item.acao_lgpd || '';
+                                    var infoAtual     = item.lgpd_informacao || '';
 
-                                    var acaoAtual      = item.acao_lgpd || '';
-                                    var infoAtual      = item.lgpd_informacao || '';
+                                    var acaoAtualCampo  = item.acao_lgpd_atual || '';
+                                    var infoAtualCampo  = item.lgpd_informacao_atual || '';
+                                    var atributoRel     = item.atributo_relacionado || '';
+                                    var palavraRel      = item.palavra_relacionada || '';
 
-                                    // MONTA A CÉLULA DA COLUNA COM title
-                                    var colunaTd = '<td title="'+ (item.column_name || '') +'">'+ (item.column_name || '') +'</td>';
+                                    // Adicionando tb nome_usuario_criador e data_criacao_marcacao se desejar:
+                                    var nomeCriador     = item.nome_usuario_criador || '';
+                                    var dataMarcacao    = item.data_criacao_marcacao || '';
 
-                                    // Monta combo de Ação (tamanho menor com .form-select-sm)
+                                    var firstCell = '<td class="coluna-cell" '+
+                                                    'data-atributo_relacionado="'+ atributoRel +'" '+
+                                                    'data-palavra_relacionada="'+ palavraRel +'" '+
+                                                    'data-acao_atual="'+ acaoAtualCampo +'" '+
+                                                    'data-info_atual="'+ infoAtualCampo +'" '+
+                                                    'data-acao_sugerida="'+ acaoAtual +'" '+
+                                                    'data-info_sugerida="'+ infoAtual +'" '+
+                                                    'data-nome_criador="'+ nomeCriador +'" '+
+                                                    'data-data_marcacao="'+ dataMarcacao +'" '+
+                                                    'title="'+ (item.column_name || '') +'">'+
+                                                    '<span class="expand-icon">+</span> '+
+                                                    (item.column_name || '') +
+                                                    '</td>';
+
                                     var selectAcao = '<select class="form-select form-select-sm select-acao-linha">';
                                     if(acaoAtual){
                                         selectAcao += '<option value="'+acaoAtual+'">'+acaoAtual+'</option>';
@@ -428,7 +463,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     });
                                     selectAcao += '</select>';
 
-                                    // Monta combo de Info (tamanho menor com .form-select-sm)
                                     var selectInfo = '<select class="form-select form-select-sm select-info-linha">';
                                     if(infoAtual){
                                         selectInfo += '<option value="'+infoAtual+'">'+infoAtual+'</option>';
@@ -444,40 +478,34 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     }
                                     selectInfo += '</select>';
 
-                                    // Define o botão (Inserir/Remover) e combos habilitados ou não
                                     var acaoButton = '';
                                     var disabledStr = '';
                                     if(acaoAtual && infoAtual){
                                         if(item.fk_lgpd_marcacao && item.fk_lgpd_marcacao !== '0'){
-                                            // Registro inserido -> Remover
                                             acaoButton = '<button class="btn btn-danger btn-sm remover-btn" '+
                                                          'data-column_comment="'+ columnComment +'" '+
                                                          'data-data_base="'+ dataBase +'" '+
                                                          'data-host_name="'+ hostName +'">Remover</button>';
-                                            disabledStr = 'disabled'; // combos desabilitados
+                                            disabledStr = 'disabled';
                                         } else {
-                                            // Possui acao e info, mas não está inserido -> Inserir
                                             acaoButton = '<button class="btn btn-success btn-sm inserir-btn" '+
                                                          'data-column_comment="'+ columnComment +'" '+
                                                          'data-data_base="'+ dataBase +'" '+
                                                          'data-host_name="'+ hostName +'">Inserir</button>';
                                         }
                                     } else {
-                                        // Ainda não há acao_lgpd ou info -> botão inserir desabilitado
                                         acaoButton = '<button class="btn btn-success btn-sm inserir-btn" disabled '+
                                                      'data-column_comment="'+ columnComment +'" '+
                                                      'data-data_base="'+ dataBase +'" '+
                                                      'data-host_name="'+ hostName +'">Inserir</button>';
                                     }
 
-                                    // Monta a linha completa
                                     var row = '<tr>'+
-                                        colunaTd +                                        // Nome da coluna com tooltip
+                                        firstCell +
                                         '<td>'+ (item.data_type || '') +'</td>'+
                                         '<td>'+ (item.data_length || '') +'</td>'+
                                         '<td>'+ aceitaNull +'</td>'+
                                         '<td>'+ chave +'</td>'+
-                                        // Comentário com tooltip
                                         '<td title="'+ comentario +'">'+ comentario +'</td>'+
                                         '<td>'+ selectAcao +'</td>'+
                                         '<td>'+ selectInfo +'</td>'+
@@ -485,7 +513,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     '</tr>';
 
                                     var $rowObj = $(row);
-                                    // Se combos devem ficar desabilitados
                                     if(disabledStr){
                                         $rowObj.find('.select-acao-linha').prop('disabled', true);
                                         $rowObj.find('.select-info-linha').prop('disabled', true);
@@ -499,78 +526,133 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 $('#attributesTable tbody').html('<tr><td colspan="9" class="text-center">Nenhum dado encontrado.</td></tr>');
                                 $('#totalResults').html('Total de resultados: 0');
                             }
-                            
-                            $('#attributesTable').DataTable({ autoWidth: false });
+
+                            var dt = $('#attributesTable').DataTable({ autoWidth: false });
+                            $('#attributesTable tbody').on('click', '.expand-icon', function(){
+                                var $cell = $(this).closest('td.coluna-cell'); 
+                                var $tr = $cell.closest('tr');
+                                var row = dt.row($tr);
+
+                                if(row.child.isShown()){
+                                    row.child.hide();
+                                    $tr.removeClass('shown');
+                                    $(this).text('+');
+                                } else {
+                                    var htmlDetails = formatDetails($cell);
+                                    row.child(htmlDetails).show();
+                                    $tr.addClass('shown');
+                                    $(this).text('–');
+                                }
+                            });
+
                             $('#attributeListContainer').show();
                         }
                     });
                 });
 
-                // 4) Filtra combo Info ao mudar Ação
+                function formatDateTime(dateString){
+                    if(!dateString) return '';
+                    var d = new Date(dateString);
+                    if(isNaN(d.getTime())) return dateString;
+                    var dd = String(d.getDate()).padStart(2,'0');
+                    var mm = String(d.getMonth()+1).padStart(2,'0');
+                    var yyyy = d.getFullYear();
+                    var hh = String(d.getHours()).padStart(2,'0');
+                    var mn = String(d.getMinutes()).padStart(2,'0');
+                    return dd+'/'+mm+'/'+yyyy+' '+hh+':'+mn;
+                }
+
+                function formatDetails($cell){
+                    var atributoRel   = $cell.attr('data-atributo_relacionado') || '';
+                    var palavraRel    = $cell.attr('data-palavra_relacionada') || '';
+                    var acaoAtual     = $cell.attr('data-acao_atual') || '';
+                    var infoAtual     = $cell.attr('data-info_atual') || '';
+                    var acaoSugerida  = $cell.attr('data-acao_sugerida') || '';
+                    var infoSugerida  = $cell.attr('data-info_sugerida') || '';
+                    var nomeCriador   = $cell.attr('data-nome_criador') || '';
+                    var dataMarcacao  = $cell.attr('data-data_marcacao') || '';
+
+                    var marcacaoAtual = (acaoAtual || infoAtual) ? (acaoAtual+' '+infoAtual) : '';
+                    var marcacaoSugerida = (acaoSugerida || infoSugerida) ? (acaoSugerida+' '+infoSugerida) : '';
+
+                    var alerta = '';
+                    if(marcacaoAtual && marcacaoSugerida && (marcacaoAtual.trim() !== marcacaoSugerida.trim())){
+                        alerta = ' ⚠';
+                    }
+
+                    var dataMarcacaoFmt = formatDateTime(dataMarcacao);
+
+                    var html = '<div style="padding:8px;">';
+                    html += '<b>Atributo Relacionado:</b> '+ atributoRel +'<br>';
+                    html += '<b>Palavra Relacionada:</b> '+ palavraRel +'<br>';
+                    html += '<hr>';
+                    html += '<b>Marcação atual:</b> '+ (marcacaoAtual || '(vazio)') +'<br>';
+                    html += '<b>Marcação sugerida:</b> '+ (marcacaoSugerida || '(vazio)') + alerta +'<br>';
+                    html += '<hr>';
+                    html += '<b>Adicionado por:</b> '+ (nomeCriador || '(desconhecido)') +'<br>';
+                    html += '<b>Data marcação:</b> '+ (dataMarcacaoFmt || '(vazio)') +'<br>';
+                    html += '</div>';
+                    return html;
+                }
+
                 $(document).on('change', '.select-acao-linha', function(){
                     var $linha = $(this).closest('tr');
-                    var acaoSelecionada = $(this).val();
+                    var acaoSel = $(this).val();
                     var $comboInfo = $linha.find('.select-info-linha');
 
                     $comboInfo.empty();
-                    if(!acaoSelecionada || !acoesInfosMap[acaoSelecionada]){
+                    if(!acaoSel || !acoesInfosMap[acaoSel]){
                         $comboInfo.append('<option value="">Selecione...</option>');
                     } else {
                         $comboInfo.append('<option value="">Selecione...</option>');
-                        acoesInfosMap[acaoSelecionada].forEach(function(info){
+                        acoesInfosMap[acaoSel].forEach(function(info){
                             $comboInfo.append('<option value="'+info+'">'+info+'</option>');
                         });
                     }
                     verificarHabilitarInserir($linha);
                 });
 
-                // 5) Ao mudar combo Info, checa se habilita Inserir
                 $(document).on('change', '.select-info-linha', function(){
                     var $linha = $(this).closest('tr');
                     verificarHabilitarInserir($linha);
                 });
 
-                // Habilita o botão Inserir se ambos combos tiverem valor
                 function verificarHabilitarInserir($linha){
                     var acaoVal = $linha.find('.select-acao-linha').val() || '';
                     var infoVal = $linha.find('.select-info-linha').val() || '';
-                    var $btnInserir = $linha.find('.inserir-btn');
-
-                    if($btnInserir.length){
+                    var $btn = $linha.find('.inserir-btn');
+                    if($btn.length){
                         if(acaoVal && infoVal){
-                            $btnInserir.prop('disabled', false);
+                            $btn.prop('disabled', false);
                         } else {
-                            $btnInserir.prop('disabled', true);
+                            $btn.prop('disabled', true);
                         }
                     }
                 }
 
-                // 6) Clique em Inserir
                 $(document).on('click', '.inserir-btn', function(){
                     var btn = $(this);
-                    // Se o botão estiver desabilitado, não faz nada
                     if(btn.prop('disabled')) return;
 
                     var $linha = btn.closest('tr');
                     var acao_lgpd = $linha.find('.select-acao-linha').val();
                     var lgpd_informacao = $linha.find('.select-info-linha').val();
 
-                    // Verificação final
                     if(!acao_lgpd || !lgpd_informacao){
                         alert('Selecione uma Ação e uma Info antes de inserir!');
                         return;
                     }
 
-                    var ambiente     = $('#ambiente').val();
+                    var ambiente = $('#ambiente').val();
                     var service_name = $('#service_name').val();
-                    var schema_name  = $('#schema_name').val();
-                    var table_name   = $('#table_name').val();
-                    var column_name  = $linha.find('td:nth-child(1)').text().trim();
+                    var schema_name = $('#schema_name').val();
+                    var table_name = $('#table_name').val();
+                    var column_name = $linha.find('td:nth-child(1)').text().trim();
+                    column_name = column_name.replace('+','').trim(); 
 
-                    // Recupera data_base, host_name, column_comment do botão
-                    var data_base       = btn.data('data_base') || '';
-                    var host_name       = btn.data('host_name') || '';
-                    var column_comment  = btn.data('column_comment') || '';
+                    var data_base = btn.data('data_base') || '';
+                    var host_name = btn.data('host_name') || '';
+                    var column_comment = btn.data('column_comment') || '';
 
                     $.ajax({
                        url: 'catalogo_lgpd_vw_ajax.php',
@@ -592,11 +674,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                        success: function(response){
                            if(response.success){
                                alert(response.message);
-                               // Troca para "Remover"
                                btn.removeClass('btn-success inserir-btn')
                                   .addClass('btn-danger remover-btn')
                                   .text('Remover');
-                               // Desabilita combos
                                $linha.find('.select-acao-linha').prop('disabled', true);
                                $linha.find('.select-info-linha').prop('disabled', true);
                            } else {
@@ -609,21 +689,20 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     });
                 });
 
-                // 7) Clique em Remover
                 $(document).on('click', '.remover-btn', function(){
                     var btn = $(this);
                     var $linha = btn.closest('tr');
 
-                    var ambiente     = $('#ambiente').val();
+                    var ambiente = $('#ambiente').val();
                     var service_name = $('#service_name').val();
-                    var schema_name  = $('#schema_name').val();
-                    var table_name   = $('#table_name').val();
-                    var column_name  = $linha.find('td:nth-child(1)').text().trim();
+                    var schema_name = $('#schema_name').val();
+                    var table_name = $('#table_name').val();
+                    var column_name = $linha.find('td:nth-child(1)').text().trim();
+                    column_name = column_name.replace('+','').trim(); 
 
-                    // Recupera data_base, host_name, column_comment do botão
-                    var data_base       = btn.data('data_base') || '';
-                    var host_name       = btn.data('host_name') || '';
-                    var column_comment  = btn.data('column_comment') || '';
+                    var data_base = btn.data('data_base') || '';
+                    var host_name = btn.data('host_name') || '';
+                    var column_comment = btn.data('column_comment') || '';
 
                     $.ajax({
                        url: 'catalogo_lgpd_vw_ajax.php',
@@ -642,7 +721,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                        success: function(response){
                            if(response.success){
                                alert(response.message);
-                               // Volta para "Inserir"
                                btn.removeClass('btn-danger remover-btn')
                                   .addClass('btn-success inserir-btn')
                                   .text('Inserir')
@@ -650,11 +728,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                   .attr('data-host_name', host_name)
                                   .attr('data-column_comment', column_comment);
 
-                               // Reabilita combos
                                $linha.find('.select-acao-linha').prop('disabled', false);
                                $linha.find('.select-info-linha').prop('disabled', false);
 
-                               // Se combos não têm valor, desabilita o botão
                                var acaoVal = $linha.find('.select-acao-linha').val() || '';
                                var infoVal = $linha.find('.select-info-linha').val() || '';
                                if(!acaoVal || !infoVal){
@@ -672,9 +748,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
             </script>
         </body>
-        <br>
-        <br>
-        <br>
         </html>
         <?php
     } elseif ($acesso != "TELA AUTORIZADA") {
