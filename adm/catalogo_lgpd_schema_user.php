@@ -622,7 +622,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     var schema_name = $('#schema_name').val();
                     var table_name = $('#table_name').val();
                     var column_name = $linha.find('td:nth-child(1)').text().trim();
-                    column_name = column_name.replace('+','').trim(); 
+                    column_name = column_name.replace(/[+–]/g, '').trim();
                     var data_base = btn.data('data_base') || '';
                     var host_name = btn.data('host_name') || '';
                     var column_comment = btn.data('column_comment') || '';
@@ -671,7 +671,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     var schema_name = $('#schema_name').val();
                     var table_name = $('#table_name').val();
                     var column_name = $linha.find('td:nth-child(1)').text().trim();
-                    column_name = column_name.replace('+','').trim(); 
+                    column_name = column_name.replace(/[+–]/g, '').trim();
                     var data_base = btn.data('data_base') || '';
                     var host_name = btn.data('host_name') || '';
                     var column_comment = btn.data('column_comment') || '';

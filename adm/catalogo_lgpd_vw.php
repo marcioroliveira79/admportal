@@ -97,7 +97,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 background-color: #f1f1f1;
             }
 
-            /* Largura das colunas */
+            /* Ajustes de largura das colunas */
             #attributesTable th:nth-child(1),
             #attributesTable td:nth-child(1) {
                 width: 180px !important;
@@ -154,15 +154,19 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 padding: 5px;
             }
 
+            /* Botão disabled mais opaco */
             .btn[disabled],
             .btn.disabled {
                 opacity: 0.1; 
                 pointer-events: none;
             }
+
+            /* Diminui a fonte dos selects (combos) */
             .form-select.form-select-sm {
                 font-size: 11px;
             }
 
+            /* Expandir sub-linha dentro da 1ª coluna */
             .coluna-cell {
                 position: relative;
             }
@@ -256,7 +260,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             </div>
 
             <script>
-            // Exemplo de formatação de data/hora
+            // Exemplo de formatação de data/hora (caso precise)
             function formatDateTime(dateString) {
                 if(!dateString) return '';
                 var d = new Date(dateString);
@@ -271,7 +275,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
             $(document).ready(function(){
 
-                // 1) Carrega combos
+                // 1) Carregamento dos combos (ambiente, service, schema, table)
                 $('#ambiente').on('change', function(){
                     var ambiente = $(this).val();
                     $('#service_name').html('<option value="">Selecione o Service Name</option>').prop('disabled', true);
@@ -358,7 +362,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                 });
 
-                // 2) Carrega Ação-Info
+                // 2) Carregar relação Ação-Info (getAcoesInfos)
                 var acoesInfosMap = {};
                 var listaAcoesUnicas = [];
 
@@ -386,7 +390,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                 });
 
-                // 3) Consultar
+                // 3) Botão Consultar -> getAttributes
                 $('#btnConsultar').on('click', function(){
                     var ambiente = $('#ambiente').val();
                     var service_name = $('#service_name').val();
@@ -405,6 +409,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         },
                         dataType: 'json',
                         success: function(response){
+                            // Destroi o DataTable, se existir
                             if($.fn.DataTable.isDataTable('#attributesTable')){
                                 $('#attributesTable').DataTable().destroy();
                             }
@@ -415,27 +420,27 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 $('#tableComment').html(tableComment);
 
                                 $.each(response.data, function(index, item){
-                                    var comentario    = item.column_comments || '';
-                                    var aceitaNull    = item.is_nullable || '';
-                                    var chave         = '';
+                                    var comentario     = item.column_comments || '';
+                                    var aceitaNull     = item.is_nullable || '';
+                                    var chave          = '';
                                     if(item.is_pk === 'Y'){ chave = 'PK'; }
                                     else if(item.is_fk === 'Y'){ chave = 'FK'; }
 
-                                    var dataBase      = item.data_base || '';
-                                    var hostName      = item.host_name || '';
-                                    var columnComment = comentario;
-                                    var acaoAtual     = item.acao_lgpd || '';
-                                    var infoAtual     = item.lgpd_informacao || '';
+                                    var dataBase       = item.data_base || '';
+                                    var hostName       = item.host_name || '';
+                                    var columnComment  = comentario;
+                                    var acaoAtual      = item.acao_lgpd || '';
+                                    var infoAtual      = item.lgpd_informacao || '';
 
-                                    var acaoAtualCampo  = item.acao_lgpd_atual || '';
-                                    var infoAtualCampo  = item.lgpd_informacao_atual || '';
-                                    var atributoRel     = item.atributo_relacionado || '';
-                                    var palavraRel      = item.palavra_relacionada || '';
+                                    // Campos extras para a expansão
+                                    var acaoAtualCampo = item.acao_lgpd_atual || '';
+                                    var infoAtualCampo = item.lgpd_informacao_atual || '';
+                                    var atributoRel    = item.atributo_relacionado || '';
+                                    var palavraRel     = item.palavra_relacionada || '';
+                                    var nomeCriador    = item.nome_usuario_criador || '';
+                                    var dataMarcacao   = item.data_criacao_marcacao || '';
 
-                                    // Adicionando tb nome_usuario_criador e data_criacao_marcacao se desejar:
-                                    var nomeCriador     = item.nome_usuario_criador || '';
-                                    var dataMarcacao    = item.data_criacao_marcacao || '';
-
+                                    // Monta a 1ª coluna com o expand-icon
                                     var firstCell = '<td class="coluna-cell" '+
                                                     'data-atributo_relacionado="'+ atributoRel +'" '+
                                                     'data-palavra_relacionada="'+ palavraRel +'" '+
@@ -450,6 +455,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                                     (item.column_name || '') +
                                                     '</td>';
 
+                                    // Monta combo de Ação
                                     var selectAcao = '<select class="form-select form-select-sm select-acao-linha">';
                                     if(acaoAtual){
                                         selectAcao += '<option value="'+acaoAtual+'">'+acaoAtual+'</option>';
@@ -463,6 +469,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     });
                                     selectAcao += '</select>';
 
+                                    // Monta combo de Info
                                     var selectInfo = '<select class="form-select form-select-sm select-info-linha">';
                                     if(infoAtual){
                                         selectInfo += '<option value="'+infoAtual+'">'+infoAtual+'</option>';
@@ -478,6 +485,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     }
                                     selectInfo += '</select>';
 
+                                    // Botão Inserir/Remover
                                     var acaoButton = '';
                                     var disabledStr = '';
                                     if(acaoAtual && infoAtual){
@@ -527,9 +535,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 $('#totalResults').html('Total de resultados: 0');
                             }
 
+                            // Inicializa DataTable
                             var dt = $('#attributesTable').DataTable({ autoWidth: false });
+
+                            // Clique no expand-icon
                             $('#attributesTable tbody').on('click', '.expand-icon', function(){
-                                var $cell = $(this).closest('td.coluna-cell'); 
+                                var $cell = $(this).closest('td.coluna-cell');
                                 var $tr = $cell.closest('tr');
                                 var row = dt.row($tr);
 
@@ -550,18 +561,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     });
                 });
 
-                function formatDateTime(dateString){
-                    if(!dateString) return '';
-                    var d = new Date(dateString);
-                    if(isNaN(d.getTime())) return dateString;
-                    var dd = String(d.getDate()).padStart(2,'0');
-                    var mm = String(d.getMonth()+1).padStart(2,'0');
-                    var yyyy = d.getFullYear();
-                    var hh = String(d.getHours()).padStart(2,'0');
-                    var mn = String(d.getMinutes()).padStart(2,'0');
-                    return dd+'/'+mm+'/'+yyyy+' '+hh+':'+mn;
-                }
-
+                // Sub-linha expandida
                 function formatDetails($cell){
                     var atributoRel   = $cell.attr('data-atributo_relacionado') || '';
                     var palavraRel    = $cell.attr('data-palavra_relacionada') || '';
@@ -595,6 +595,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     return html;
                 }
 
+                // Quando muda combo Ação, filtra combo Info
                 $(document).on('change', '.select-acao-linha', function(){
                     var $linha = $(this).closest('tr');
                     var acaoSel = $(this).val();
@@ -612,6 +613,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     verificarHabilitarInserir($linha);
                 });
 
+                // Quando muda combo Info, checa se habilita Inserir
                 $(document).on('change', '.select-info-linha', function(){
                     var $linha = $(this).closest('tr');
                     verificarHabilitarInserir($linha);
@@ -620,16 +622,18 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 function verificarHabilitarInserir($linha){
                     var acaoVal = $linha.find('.select-acao-linha').val() || '';
                     var infoVal = $linha.find('.select-info-linha').val() || '';
-                    var $btn = $linha.find('.inserir-btn');
-                    if($btn.length){
+                    var $btnInserir = $linha.find('.inserir-btn');
+
+                    if($btnInserir.length){
                         if(acaoVal && infoVal){
-                            $btn.prop('disabled', false);
+                            $btnInserir.prop('disabled', false);
                         } else {
-                            $btn.prop('disabled', true);
+                            $btnInserir.prop('disabled', true);
                         }
                     }
                 }
 
+                // Evento INSERIR
                 $(document).on('click', '.inserir-btn', function(){
                     var btn = $(this);
                     if(btn.prop('disabled')) return;
@@ -643,15 +647,17 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         return;
                     }
 
-                    var ambiente = $('#ambiente').val();
+                    var ambiente     = $('#ambiente').val();
                     var service_name = $('#service_name').val();
-                    var schema_name = $('#schema_name').val();
-                    var table_name = $('#table_name').val();
-                    var column_name = $linha.find('td:nth-child(1)').text().trim();
-                    column_name = column_name.replace('+','').trim(); 
+                    var schema_name  = $('#schema_name').val();
+                    var table_name   = $('#table_name').val();
 
-                    var data_base = btn.data('data_base') || '';
-                    var host_name = btn.data('host_name') || '';
+                    // Pega a coluna e remove + e –
+                    var column_name = $linha.find('td:nth-child(1)').text().trim();
+                    column_name = column_name.replace(/[+–]/g, '').trim();
+
+                    var data_base      = btn.data('data_base') || '';
+                    var host_name      = btn.data('host_name') || '';
                     var column_comment = btn.data('column_comment') || '';
 
                     $.ajax({
@@ -677,6 +683,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                btn.removeClass('btn-success inserir-btn')
                                   .addClass('btn-danger remover-btn')
                                   .text('Remover');
+                               // Desabilita combos
                                $linha.find('.select-acao-linha').prop('disabled', true);
                                $linha.find('.select-info-linha').prop('disabled', true);
                            } else {
@@ -689,19 +696,22 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     });
                 });
 
+                // Evento REMOVER
                 $(document).on('click', '.remover-btn', function(){
                     var btn = $(this);
                     var $linha = btn.closest('tr');
 
-                    var ambiente = $('#ambiente').val();
+                    var ambiente     = $('#ambiente').val();
                     var service_name = $('#service_name').val();
-                    var schema_name = $('#schema_name').val();
-                    var table_name = $('#table_name').val();
-                    var column_name = $linha.find('td:nth-child(1)').text().trim();
-                    column_name = column_name.replace('+','').trim(); 
+                    var schema_name  = $('#schema_name').val();
+                    var table_name   = $('#table_name').val();
 
-                    var data_base = btn.data('data_base') || '';
-                    var host_name = btn.data('host_name') || '';
+                    // Pega a coluna e remove + e –
+                    var column_name = $linha.find('td:nth-child(1)').text().trim();
+                    column_name = column_name.replace(/[+–]/g, '').trim();
+
+                    var data_base      = btn.data('data_base') || '';
+                    var host_name      = btn.data('host_name') || '';
                     var column_comment = btn.data('column_comment') || '';
 
                     $.ajax({
@@ -745,6 +755,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                        }
                     });
                 });
+
             });
             </script>
         </body>
