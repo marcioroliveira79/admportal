@@ -59,6 +59,14 @@ if ($acesso != "TELA AUTORIZADA") {
       font-weight: bold;
       color: #4a4a4a;
     }
+    /* Formulário de busca */
+    .search-form {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
     /* Drag bar */
     #dragBar {
       width: 5px;
@@ -111,6 +119,7 @@ if ($acesso != "TELA AUTORIZADA") {
       border-radius: 10px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       padding: 20px;
+      min-height: 200px;
     }
     /* Details tables */
     #detailsTable,
@@ -161,7 +170,45 @@ if ($acesso != "TELA AUTORIZADA") {
   <div class="container-fluid">
     <!-- Sidebar -->
     <div id="sidebar">
-      <h5><i class="fa-solid fa-database"></i> Ambientes</h5>
+      <!-- Título e botão para expandir/ocultar a busca -->
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0"><i class="fa-solid fa-database"></i> Ambientes</h5>
+        <!-- Botão que expande/colapsa o formulário de busca -->
+        <button class="btn btn-sm btn-outline-secondary" type="button"
+                data-bs-toggle="collapse" data-bs-target="#searchContainer"
+                aria-expanded="false" aria-controls="searchContainer">
+          <i class="fa fa-search"></i>
+        </button>
+      </div>
+
+      <!-- Formulário de busca (inicia colapsado) -->
+      <div class="collapse" id="searchContainer">
+        <div class="search-form">
+          <div class="mb-2">
+            <label for="ambienteBusca" class="form-label"><strong>Ambiente</strong></label>
+            <select id="ambienteBusca" class="form-select form-select-sm">
+              <!-- Será preenchido dinamicamente via AJAX -->
+              <option value="">Carregando...</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label for="tipoBusca" class="form-label"><strong>Tipo de busca</strong></label>
+            <select id="tipoBusca" class="form-select form-select-sm">
+              <option value="">Selecione...</option>
+              <option value="schema">Schema</option>
+              <option value="table">Tabela</option>
+              <option value="attribute">Atributo</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label for="searchText" class="form-label"><strong>Buscar</strong></label>
+            <input type="text" class="form-control form-control-sm" id="searchText" placeholder="Use % para wildcard...">
+          </div>
+          <!-- Botão de busca verde -->
+          <button class="btn btn-success btn-sm" id="btnSearch">Buscar</button>
+        </div>
+      </div>
+
       <div id="treeContainer"></div>
       <!-- Legenda de Data de Coleta -->
       <div id="timeLegend">
@@ -208,7 +255,6 @@ if ($acesso != "TELA AUTORIZADA") {
     if(!isResizing) return;
     const dx = e.clientX - startX;
     const newWidth = startWidth + dx;
-    // Podemos definir limites mínimo e máximo, se quiser
     if(newWidth > 200 && newWidth < 1000) {
       sidebar.style.width = newWidth + 'px';
     }
@@ -218,25 +264,133 @@ if ($acesso != "TELA AUTORIZADA") {
     isResizing = false;
   });
 
-  // --- Seu script atual para montar a árvore e exibir detalhes ---
   $(document).ready(function(){
-    // Carregar a hierarquia via AJAX
-    $.ajax({
-      url: 'catalogo_sql_dev_style_ajax.php',
-      method: 'GET',
-      data: { action: 'getHierarchy' },
-      dataType: 'json',
-      success: function(resp) {
-        if(resp.success) {
-          buildTree(resp.data);
-        } else {
-          $('#treeContainer').html('<p>Não há dados de conexão.</p>');
-        }
-      },
-      error: function() {
-        $('#treeContainer').html('<p>Erro ao carregar conexões.</p>');
+
+    // 1) Preenche dinamicamente a combo de ambientes
+    loadAmbientes();
+
+    // 2) Carrega a hierarquia inicial
+    loadHierarchy();
+
+    // Clique do botão "Buscar"
+    $('#btnSearch').on('click', function(){
+      var amb = $('#ambienteBusca').val();
+      var tipo = $('#tipoBusca').val();
+      var txt = $('#searchText').val();
+
+      if(!amb || !tipo || !txt) {
+        alert("Preencha todos os campos da busca!");
+        return;
       }
+
+      // Reseta o título do path para indicar busca
+      $('#tablePath').text('Resultados da busca');
+
+      // Faz a chamada AJAX para a busca
+      $.ajax({
+        url: 'catalogo_sql_dev_style_ajax.php',
+        method: 'GET',
+        data: {
+          action: 'search',
+          ambiente: amb,
+          tipo: tipo,
+          texto: txt
+        },
+        dataType: 'json',
+        success: function(resp) {
+          if(resp.success) {
+            var results = resp.data;
+            // Define rótulo para exibir se é schema, tabela ou atributo
+            var tipoNome = (tipo === 'schema') ? 'Schemas' :
+                           (tipo === 'table') ? 'Tabelas' :
+                           (tipo === 'attribute') ? 'Atributos' : 'Desconhecido';
+            var html = '<p><strong>' + results.length + ' resultado(s) encontrado(s) para ' + tipoNome + ':</strong></p>';
+            
+            if(results.length === 0) {
+              $('#detailsContainer').html(html);
+              return;
+            }
+            // Monta listagem
+            html += '<ul>';
+            results.forEach(function(r){
+              if(tipo === 'schema') {
+                // Exemplo: HOMOLOGACAO/DBGCIHO/DBCONSTRUTORA/
+                html += '<li>' + r.ambiente + '/' + r.service_name + '/' + r.schema_name + '/</li>';
+              } else {
+                // Se for tabela ou atributo, adiciona link
+                // Exemplo: HOMOLOGACAO/DBGCIHO/DBCONSTRUTORA/RCF_CONTRATO
+                var pathText = r.ambiente + '/' + r.service_name + '/' + r.schema_name + '/' + r.table_name;
+                html += '<li><a href="#" class="tableLink" data-amb="' + r.ambiente + '" data-srv="' + r.service_name + '" data-sch="' + r.schema_name + '" data-tbl="' + r.table_name + '">' + pathText + '</a></li>';
+              }
+            });
+            html += '</ul>';
+
+            $('#detailsContainer').html(html);
+
+            // Quando clicar no link, carrega o detalhe
+            $('.tableLink').on('click', function(e){
+              e.preventDefault();
+              var amb = $(this).data('amb');
+              var srv = $(this).data('srv');
+              var sch = $(this).data('sch');
+              var tbl = $(this).data('tbl');
+              showTableDetails(amb, srv, sch, tbl);
+            });
+          } else {
+            $('#detailsContainer').html('<p>Erro na busca: ' + resp.data + '</p>');
+          }
+        },
+        error: function() {
+          $('#detailsContainer').html('<p>Erro ao realizar a busca.</p>');
+        }
+      });
     });
+
+    function loadAmbientes(){
+      // Chama a nova ação getAmbientes para preencher o combo
+      $.ajax({
+        url: 'catalogo_sql_dev_style_ajax.php',
+        method: 'GET',
+        data: { action: 'getAmbientes' },
+        dataType: 'json',
+        success: function(resp) {
+          if(resp.success) {
+            var ambientes = resp.data; // array de strings
+            var $select = $('#ambienteBusca');
+            $select.empty(); // limpa
+            $select.append('<option value="">Selecione...</option>');
+            ambientes.forEach(function(amb){
+              $select.append('<option value="' + amb + '">' + amb + '</option>');
+            });
+          } else {
+            // Se falhar, deixa o combo com erro
+            $('#ambienteBusca').html('<option value="">Erro ao carregar</option>');
+          }
+        },
+        error: function() {
+          $('#ambienteBusca').html('<option value="">Erro ao carregar</option>');
+        }
+      });
+    }
+
+    function loadHierarchy(){
+      $.ajax({
+        url: 'catalogo_sql_dev_style_ajax.php',
+        method: 'GET',
+        data: { action: 'getHierarchy' },
+        dataType: 'json',
+        success: function(resp) {
+          if(resp.success) {
+            buildTree(resp.data);
+          } else {
+            $('#treeContainer').html('<p>Não há dados de conexão.</p>');
+          }
+        },
+        error: function() {
+          $('#treeContainer').html('<p>Erro ao carregar conexões.</p>');
+        }
+      });
+    }
 
     function buildTree(data) {
       var $ul = $('<ul class="list-unstyled"></ul>');
@@ -283,6 +437,10 @@ if ($acesso != "TELA AUTORIZADA") {
                   var $childUL3 = $('<ul class="tree-children list-unstyled"></ul>');
                   schemaObj.children.forEach(function(tblObj){
                     var tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
+                    // Se a tabela ou algum atributo estiver sem comentário, adiciona o ícone de alerta
+                    if(tblObj.missing_descriptions) {
+                      tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                    }
                     var $liTbl = createTreeNode('fa-table text-info', tableLabel);
                     $liTbl.children('.tree-node').on('click', function(e){
                       e.stopPropagation();
@@ -313,9 +471,13 @@ if ($acesso != "TELA AUTORIZADA") {
     function createTreeNode(iconClass, labelText){
       var $li = $('<li class="mb-1"></li>');
       var $div = $('<div class="tree-node"></div>');
+      
+      // Se for tabela, define um title sem tags HTML
       if(iconClass.indexOf("fa-table") !== -1) {
-        $div.attr("title", labelText);
+        var plainText = labelText.replace(/<[^>]+>/g, '');
+        $div.attr("title", plainText);
       }
+
       $div.append('<i class="fa ' + iconClass + '"></i> ' + labelText);
       $li.append($div);
       return $li;
@@ -345,12 +507,28 @@ if ($acesso != "TELA AUTORIZADA") {
             html += '<tr><th>Service Name</th><td>' + (tbl.service_name || '') + '</td></tr>';
             html += '<tr><th>Schema</th><td>' + (tbl.schema_name || '') + '</td></tr>';
             html += '<tr><th>Tabela</th><td>' + (tbl.table_name || '') + '</td></tr>';
-            html += '<tr><th>Comentário</th><td>' + (tbl.table_comments || '') + '</td></tr>';
+
+            // Comentário da tabela
+            var tableComment = tbl.table_comments || '';
+            if(!tbl.table_comments) {
+              tableComment = '<i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+            }
+            html += '<tr><th>Comentário</th><td>' + tableComment + '</td></tr>';
+
+            // Data de Criação e Últ. DDL
             html += '<tr><th>Data de Criação</th><td>' + formatDateTime(tbl.table_creation_date) + '</td></tr>';
             html += '<tr><th>Últ. DDL aplicado</th><td>' + formatDateTime(tbl.table_last_ddl_time) + '</td></tr>';
-            html += '<tr><th>Qtd. de Registros</th><td>' + (tbl.record_count || '0') + '</td></tr>';
+
+            // Qtd. de Registros (formatado)
+            var recordCountFormatted = '0';
+            if(tbl.record_count) {
+              recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR');
+            }
+            html += '<tr><th>Qtd. de Registros</th><td>' + recordCountFormatted + '</td></tr>';
+
             html += '</table>';
             
+            // Exibe as colunas
             if(tbl.columns && tbl.columns.length > 0) {
               html += '<h5></h5>';
               html += '<table id="columnsTable">';
@@ -364,6 +542,12 @@ if ($acesso != "TELA AUTORIZADA") {
                 } else if(col.is_fk === 'Y') {
                   chave = '<i class="fa fa-key" style="color:green;"></i>';
                 }
+
+                var colComment = col.column_comments;
+                if(!col.column_comments) {
+                  colComment = '<i class="fa fa-exclamation-triangle text-danger" title="Falta descrição para este atributo"></i>';
+                }
+
                 html += '<tr>';
                 html += '<td>' + (col.column_name || '') + '</td>';
                 html += '<td>' + (col.data_type || '') + '</td>';
@@ -371,7 +555,7 @@ if ($acesso != "TELA AUTORIZADA") {
                 html += '<td>' + (col.is_nullable || '') + '</td>';
                 html += '<td>' + (col.is_unique || '') + '</td>';
                 html += '<td>' + chave + '</td>';
-                html += '<td>' + (col.column_comments || '') + '</td>';
+                html += '<td>' + colComment + '</td>';
                 html += '</tr>';
               });
               html += '</table>';
@@ -397,7 +581,4 @@ if ($acesso != "TELA AUTORIZADA") {
   });
   </script>
 </body>
-<br>
-<br>
-<br>
 </html>
