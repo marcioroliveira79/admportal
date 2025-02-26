@@ -9,6 +9,7 @@ $response = ['success' => false, 'data' => null];
 
 if ($action === 'getHierarchy') {
     // Retorna a hierarquia de ambientes -> serviços -> schemas -> tabelas
+    // Agora também retorna object_type para identificar os diferentes tipos
     $query = "
         SELECT
             ambiente,
@@ -16,16 +17,17 @@ if ($action === 'getHierarchy') {
             service_name,
             schema_name,
             table_name,
+            object_type,
+            table_comments,
             date_collect,
             COUNT(column_name) AS columns_count,
-            MAX(table_comments) as table_comments,
             SUM(CASE WHEN column_comments IS NULL OR column_comments = '' THEN 1 ELSE 0 END) AS missing_column_comments
         FROM administracao.catalog_table_content
         WHERE ambiente IS NOT NULL
           AND service_name IS NOT NULL
           AND schema_name IS NOT NULL
           AND table_name IS NOT NULL
-        GROUP BY ambiente, host_name, service_name, schema_name, table_name, date_collect
+        GROUP BY ambiente, host_name, service_name, schema_name, table_name, object_type, table_comments, date_collect
         ORDER BY ambiente, service_name, schema_name, table_name
     ";
     $result = pg_query($conexao, $query);
@@ -47,7 +49,6 @@ if ($action === 'getHierarchy') {
                         'services' => []
                     ];
                 } else {
-                    // Atualiza a data de coleta se a atual for mais recente
                     if (strtotime($r['date_collect']) > strtotime($byAmbiente[$amb]['date_collect'])) {
                         $byAmbiente[$amb]['date_collect'] = $r['date_collect'];
                     }
@@ -61,11 +62,13 @@ if ($action === 'getHierarchy') {
                 if (!isset($byAmbiente[$amb]['services'][$srvNameWithIp][$sch])) {
                     $byAmbiente[$amb]['services'][$srvNameWithIp][$sch] = [];
                 }
+                // Define missing_descriptions somente se não for TABELA EXTERNA
                 $byAmbiente[$amb]['services'][$srvNameWithIp][$sch][] = [
                     'table_name'          => $r['table_name'],
                     'columns_count'       => $r['columns_count'],
                     'table_comments'      => $r['table_comments'],
-                    'missing_descriptions'=> (empty($r['table_comments']) || ((int)$r['missing_column_comments'] > 0)) ? true : false
+                    'object_type'         => $r['object_type'],
+                    'missing_descriptions'=> ($r['object_type'] !== 'TABELA EXTERNA' && (empty($r['table_comments']) || ((int)$r['missing_column_comments'] > 0))) ? true : false
                 ];
             }
             $hierarchy = [];
@@ -75,6 +78,21 @@ if ($action === 'getHierarchy') {
                 foreach ($services as $srvKey => $schemasVal) {
                     $schemaArr = [];
                     foreach ($schemasVal as $schemaKey => $tblsVal) {
+                        // Ordena os objetos dentro do schema
+                        usort($tblsVal, function($a, $b) {
+                            $order = array(
+                                'TABELA' => 1,
+                                'TABELA EXTERNA' => 2,
+                                'VIEW' => 3,
+                                'VIEW MATERIALIZADA' => 4
+                            );
+                            $wA = isset($order[$a['object_type']]) ? $order[$a['object_type']] : 999;
+                            $wB = isset($order[$b['object_type']]) ? $order[$b['object_type']] : 999;
+                            if ($wA === $wB) {
+                                return strcmp($a['table_name'], $b['table_name']);
+                            }
+                            return $wA - $wB;
+                        });
                         $schemaArr[] = [
                             'schema_name' => $schemaKey,
                             'children'    => $tblsVal
@@ -112,7 +130,6 @@ elseif ($action === 'getTableDetails') {
     $svc = preg_replace('/\(.*?\)/', '', $serviceName);
     $svc = trim($svc);
 
-    // Consulta principal da tabela
     $query = "
         SELECT ambiente,
                service_name,
@@ -121,7 +138,11 @@ elseif ($action === 'getTableDetails') {
                table_comments,
                table_creation_date,
                table_last_ddl_time,
-               record_count
+               record_count,
+               object_type,
+               external_directory,
+               external_directory_path,
+               external_location
         FROM administracao.catalog_table_content
         WHERE ambiente = $1
           AND service_name = $2
@@ -193,12 +214,9 @@ elseif ($action === 'search') {
         exit;
     }
 
-    // Monta pattern para ILIKE
     $pattern = $texto;
-
     try {
         if ($tipo === 'schema') {
-            // Busca por schema
             $sql = "
                 SELECT DISTINCT ambiente, service_name, schema_name
                 FROM administracao.catalog_table_content
@@ -210,7 +228,6 @@ elseif ($action === 'search') {
             $result = pg_query_params($conexao, $sql, $params);
             $rows = ($result) ? pg_fetch_all($result) : [];
             if (!$rows) $rows = [];
-
             $data = [];
             foreach ($rows as $r) {
                 $data[] = [
@@ -223,7 +240,6 @@ elseif ($action === 'search') {
             $response['data'] = $data;
         }
         elseif ($tipo === 'table') {
-            // Busca por tabela
             $sql = "
                 SELECT DISTINCT ambiente, service_name, schema_name, table_name
                 FROM administracao.catalog_table_content
@@ -235,7 +251,6 @@ elseif ($action === 'search') {
             $result = pg_query_params($conexao, $sql, $params);
             $rows = ($result) ? pg_fetch_all($result) : [];
             if (!$rows) $rows = [];
-
             $data = [];
             foreach ($rows as $r) {
                 $data[] = [
@@ -249,7 +264,6 @@ elseif ($action === 'search') {
             $response['data'] = $data;
         }
         elseif ($tipo === 'attribute') {
-            // Busca por atributo (coluna)
             $sql = "
                 SELECT DISTINCT ambiente, service_name, schema_name, table_name
                 FROM administracao.catalog_table_content
@@ -261,7 +275,6 @@ elseif ($action === 'search') {
             $result = pg_query_params($conexao, $sql, $params);
             $rows = ($result) ? pg_fetch_all($result) : [];
             if (!$rows) $rows = [];
-
             $data = [];
             foreach ($rows as $r) {
                 $data[] = [
@@ -282,12 +295,10 @@ elseif ($action === 'search') {
         $response['success'] = false;
         $response['data'] = $e->getMessage();
     }
-
     echo json_encode($response);
     exit;
 }
 elseif ($action === 'getAmbientes') {
-    // Retorna lista de ambientes distintos
     $sql = "
         SELECT DISTINCT ambiente
         FROM administracao.catalog_table_content
@@ -299,7 +310,50 @@ elseif ($action === 'getAmbientes') {
         $response['success'] = false;
         $response['data'] = pg_last_error($conexao);
     } else {
-        $rows = pg_fetch_all_columns($result, 0); // Retorna apenas a 1ª coluna (ambiente)
+        $rows = pg_fetch_all_columns($result, 0);
+        if (!$rows) {
+            $rows = [];
+        }
+        $response['success'] = true;
+        $response['data'] = $rows;
+    }
+    echo json_encode($response);
+    exit;
+}
+elseif ($action === 'getTableHistory') {
+    // Retorna o histórico de record_count para uma tabela
+    $ambiente    = $_GET['ambiente']     ?? '';
+    $serviceName = $_GET['service_name'] ?? '';
+    $schemaName  = $_GET['schema_name']  ?? '';
+    $tableName   = $_GET['table_name']   ?? '';
+
+    if (!$ambiente || !$serviceName || !$schemaName || !$tableName) {
+        $response['success'] = false;
+        $response['data'] = 'Parâmetros inválidos.';
+        echo json_encode($response);
+        exit;
+    }
+
+    // Remove possíveis parênteses do serviceName
+    $svc = preg_replace('/\(.*?\)/', '', $serviceName);
+    $svc = trim($svc);
+
+    $query = "
+        SELECT date_collect, record_count
+        FROM administracao.catalog_hist_stats_tabela
+        WHERE ambiente = $1
+          AND service_name = $2
+          AND schema_name = $3
+          AND table_name = $4
+        ORDER BY date_collect ASC
+    ";
+    $params = [$ambiente, $svc, $schemaName, $tableName];
+    $result = pg_query_params($conexao, $query, $params);
+    if (!$result) {
+        $response['success'] = false;
+        $response['data'] = pg_last_error($conexao);
+    } else {
+        $rows = pg_fetch_all($result);
         if (!$rows) {
             $rows = [];
         }

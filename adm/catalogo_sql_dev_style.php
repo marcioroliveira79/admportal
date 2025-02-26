@@ -26,6 +26,9 @@ if ($acesso != "TELA AUTORIZADA") {
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <!-- Ícones (usando Font Awesome) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     /* Garante que html/body ocupem 100% da tela */
     html, body {
@@ -40,14 +43,14 @@ if ($acesso != "TELA AUTORIZADA") {
     /* .container-fluid ajustado para ocupar 100% */
     .container-fluid {
       height: 100%;
-      display: flex;        /* permite colocar sidebar, dragBar e mainContent lado a lado */
+      display: flex; /* coloca sidebar, dragBar e mainContent lado a lado */
       flex-direction: row;
     }
     /* Sidebar inicial: 400px, mas será ajustado ao arrastar */
     #sidebar {
       background-color: #ffffff;
       border-right: 1px solid #ddd;
-      width: 400px; /* Largura inicial */
+      width: 400px;
       padding: 15px;
       box-shadow: 2px 0 5px rgba(0,0,0,0.1);
       height: 100%;
@@ -72,7 +75,6 @@ if ($acesso != "TELA AUTORIZADA") {
       width: 5px;
       cursor: col-resize;
       background-color: #ccc;
-      /* Para garantir que ocupe 100% da altura */
       height: 100%;
     }
     /* Legenda de Data de Coleta na sidebar */
@@ -234,23 +236,23 @@ if ($acesso != "TELA AUTORIZADA") {
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-  
   <script>
+  // Função para converter uma string para Title Case
+  function toTitleCase(str) {
+    return str.toLowerCase().replace(/\b\w/g, function(letter) { return letter.toUpperCase(); });
+  }
+
   // Script para redimensionar o sidebar
   let isResizing = false;
   let startX = 0;
   let startWidth = 0;
-
   const sidebar = document.getElementById('sidebar');
   const dragBar = document.getElementById('dragBar');
-
   dragBar.addEventListener('mousedown', function(e) {
     isResizing = true;
     startX = e.clientX;
-    // Largura atual do sidebar
     startWidth = parseInt(window.getComputedStyle(sidebar, null).getPropertyValue('width'), 10);
   });
-
   document.addEventListener('mousemove', function(e) {
     if(!isResizing) return;
     const dx = e.clientX - startX;
@@ -259,16 +261,13 @@ if ($acesso != "TELA AUTORIZADA") {
       sidebar.style.width = newWidth + 'px';
     }
   });
-
   document.addEventListener('mouseup', function() {
     isResizing = false;
   });
 
   $(document).ready(function(){
-
     // 1) Preenche dinamicamente a combo de ambientes
     loadAmbientes();
-
     // 2) Carrega a hierarquia inicial
     loadHierarchy();
 
@@ -277,16 +276,11 @@ if ($acesso != "TELA AUTORIZADA") {
       var amb = $('#ambienteBusca').val();
       var tipo = $('#tipoBusca').val();
       var txt = $('#searchText').val();
-
       if(!amb || !tipo || !txt) {
         alert("Preencha todos os campos da busca!");
         return;
       }
-
-      // Reseta o título do path para indicar busca
       $('#tablePath').text('Resultados da busca');
-
-      // Faz a chamada AJAX para a busca
       $.ajax({
         url: 'catalogo_sql_dev_style_ajax.php',
         method: 'GET',
@@ -300,34 +294,27 @@ if ($acesso != "TELA AUTORIZADA") {
         success: function(resp) {
           if(resp.success) {
             var results = resp.data;
-            // Define rótulo para exibir se é schema, tabela ou atributo
             var tipoNome = (tipo === 'schema') ? 'Schemas' :
                            (tipo === 'table') ? 'Tabelas' :
                            (tipo === 'attribute') ? 'Atributos' : 'Desconhecido';
             var html = '<p><strong>' + results.length + ' resultado(s) encontrado(s) para ' + tipoNome + ':</strong></p>';
-            
             if(results.length === 0) {
               $('#detailsContainer').html(html);
               return;
             }
-            // Monta listagem
             html += '<ul>';
             results.forEach(function(r){
               if(tipo === 'schema') {
-                // Exemplo: HOMOLOGACAO/DBGCIHO/DBCONSTRUTORA/
                 html += '<li>' + r.ambiente + '/' + r.service_name + '/' + r.schema_name + '/</li>';
               } else {
-                // Se for tabela ou atributo, adiciona link
-                // Exemplo: HOMOLOGACAO/DBGCIHO/DBCONSTRUTORA/RCF_CONTRATO
                 var pathText = r.ambiente + '/' + r.service_name + '/' + r.schema_name + '/' + r.table_name;
                 html += '<li><a href="#" class="tableLink" data-amb="' + r.ambiente + '" data-srv="' + r.service_name + '" data-sch="' + r.schema_name + '" data-tbl="' + r.table_name + '">' + pathText + '</a></li>';
               }
             });
             html += '</ul>';
-
             $('#detailsContainer').html(html);
 
-            // Quando clicar no link, carrega o detalhe
+            // Links para carregar detalhes
             $('.tableLink').on('click', function(e){
               e.preventDefault();
               var amb = $(this).data('amb');
@@ -347,7 +334,6 @@ if ($acesso != "TELA AUTORIZADA") {
     });
 
     function loadAmbientes(){
-      // Chama a nova ação getAmbientes para preencher o combo
       $.ajax({
         url: 'catalogo_sql_dev_style_ajax.php',
         method: 'GET',
@@ -355,15 +341,14 @@ if ($acesso != "TELA AUTORIZADA") {
         dataType: 'json',
         success: function(resp) {
           if(resp.success) {
-            var ambientes = resp.data; // array de strings
+            var ambientes = resp.data;
             var $select = $('#ambienteBusca');
-            $select.empty(); // limpa
+            $select.empty();
             $select.append('<option value="">Selecione...</option>');
             ambientes.forEach(function(amb){
               $select.append('<option value="' + amb + '">' + amb + '</option>');
             });
           } else {
-            // Se falhar, deixa o combo com erro
             $('#ambienteBusca').html('<option value="">Erro ao carregar</option>');
           }
         },
@@ -415,6 +400,7 @@ if ($acesso != "TELA AUTORIZADA") {
           e.stopPropagation();
           $(this).parent().toggleClass('expanded');
         });
+
         if(ambObj.children && ambObj.children.length > 0){
           var $childUL = $('<ul class="tree-children list-unstyled"></ul>');
           ambObj.children.forEach(function(serviceObj){
@@ -424,36 +410,94 @@ if ($acesso != "TELA AUTORIZADA") {
               e.stopPropagation();
               $(this).parent().toggleClass('expanded');
             });
+
             if(serviceObj.children && serviceObj.children.length > 0){
               var $childUL2 = $('<ul class="tree-children list-unstyled"></ul>');
               serviceObj.children.forEach(function(schemaObj){
-                var schemaLabel = schemaObj.schema_name + " (" + (schemaObj.children ? schemaObj.children.length : 0) + ")";
-                var $liSch = createTreeNode('fa-sitemap text-warning', schemaLabel);
+                var $liSch = createTreeNode('fa-sitemap text-warning', schemaObj.schema_name);
                 $liSch.children('.tree-node').on('click', function(e){
                   e.stopPropagation();
                   $(this).parent().toggleClass('expanded');
                 });
+
                 if(schemaObj.children && schemaObj.children.length > 0){
-                  var $childUL3 = $('<ul class="tree-children list-unstyled"></ul>');
-                  schemaObj.children.forEach(function(tblObj){
-                    var tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
-                    // Se a tabela ou algum atributo estiver sem comentário, adiciona o ícone de alerta
-                    if(tblObj.missing_descriptions) {
-                      tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                  // Agrupar por tipo
+                  var groups = {};
+                  schemaObj.children.forEach(function(tblObj) {
+                    var type = tblObj.object_type ? tblObj.object_type.toUpperCase() : 'TABELA';
+                    if(!groups[type]){
+                      groups[type] = [];
                     }
-                    var $liTbl = createTreeNode('fa-table text-info', tableLabel);
-                    $liTbl.children('.tree-node').on('click', function(e){
-                      e.stopPropagation();
-                      showTableDetails(
-                        ambObj.ambiente,
-                        serviceObj.service_name,
-                        schemaObj.schema_name,
-                        tblObj.table_name
-                      );
-                    });
-                    $childUL3.append($liTbl);
+                    groups[type].push(tblObj);
                   });
-                  $liSch.append($childUL3);
+
+                  // Ordem de exibição
+                  var order = {
+                    'TABELA': 1,
+                    'TABELA EXTERNA': 2,
+                    'VIEW': 3,
+                    'VIEW MATERIALIZADA': 4
+                  };
+                  var groupKeys = Object.keys(groups).sort(function(a, b){
+                    var weightA = order[a] || 999;
+                    var weightB = order[b] || 999;
+                    return weightA - weightB;
+                  });
+
+                  var $schemaChildUL = $('<ul class="tree-children list-unstyled"></ul>');
+                  groupKeys.forEach(function(type) {
+                    var items = groups[type];
+                    // Ordena alfabeticamente
+                    items.sort(function(a,b) {
+                      return a.table_name.localeCompare(b.table_name);
+                    });
+                    var labelGrupo = type + " (" + items.length + ")";
+                    var iconGrupo = "";
+                    switch(type){
+                      case "TABELA":
+                        iconGrupo = "fa-table text-info";
+                        break;
+                      case "TABELA EXTERNA":
+                        iconGrupo = "fa-external-link-alt text-secondary";
+                        break;
+                      case "VIEW":
+                        iconGrupo = "fa-eye text-primary";
+                        break;
+                      case "VIEW MATERIALIZADA":
+                        iconGrupo = "fa-eye text-warning";
+                        break;
+                      default:
+                        iconGrupo = "fa-table text-info";
+                    }
+                    var $liGrupo = createTreeNode(iconGrupo, labelGrupo);
+                    $liGrupo.children('.tree-node').on('click', function(e){
+                      e.stopPropagation();
+                      $(this).parent().toggleClass('expanded');
+                    });
+
+                    var $groupChildUL = $('<ul class="tree-children list-unstyled"></ul>');
+                    items.forEach(function(tblObj){
+                      var tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
+                      if(tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA'){
+                        tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                      }
+                      var $liTbl = createTreeNode(iconGrupo, tableLabel);
+                      $liTbl.children('.tree-node').on('click', function(e){
+                        e.stopPropagation();
+                        showTableDetails(
+                          ambObj.ambiente,
+                          serviceObj.service_name,
+                          schemaObj.schema_name,
+                          tblObj.table_name
+                        );
+                      });
+                      $groupChildUL.append($liTbl);
+                    });
+
+                    $liGrupo.append($groupChildUL);
+                    $schemaChildUL.append($liGrupo);
+                  });
+                  $liSch.append($schemaChildUL);
                 }
                 $childUL2.append($liSch);
               });
@@ -471,13 +515,11 @@ if ($acesso != "TELA AUTORIZADA") {
     function createTreeNode(iconClass, labelText){
       var $li = $('<li class="mb-1"></li>');
       var $div = $('<div class="tree-node"></div>');
-      
-      // Se for tabela, define um title sem tags HTML
-      if(iconClass.indexOf("fa-table") !== -1) {
+      // Define um "title" se for tabela, view, etc.
+      if(iconClass.indexOf("fa-table") !== -1 || iconClass.indexOf("fa-external-link-alt") !== -1 || iconClass.indexOf("fa-eye") !== -1) {
         var plainText = labelText.replace(/<[^>]+>/g, '');
         $div.attr("title", plainText);
       }
-
       $div.append('<i class="fa ' + iconClass + '"></i> ' + labelText);
       $li.append($div);
       return $li;
@@ -506,29 +548,48 @@ if ($acesso != "TELA AUTORIZADA") {
             html += '<tr><th>Ambiente</th><td>' + (tbl.ambiente || '') + '</td></tr>';
             html += '<tr><th>Service Name</th><td>' + (tbl.service_name || '') + '</td></tr>';
             html += '<tr><th>Schema</th><td>' + (tbl.schema_name || '') + '</td></tr>';
-            html += '<tr><th>Tabela</th><td>' + (tbl.table_name || '') + '</td></tr>';
+
+            // Tipo de objeto
+            var rawType = tbl.object_type || '';
+            if(rawType.toUpperCase() === 'VIEW MATERIALIZADA') {
+                rawType = 'View Materializada';
+            } else if(rawType.toUpperCase() === 'VIEW') {
+                rawType = 'View';
+            } else if(rawType.toUpperCase() === 'TABELA EXTERNA') {
+                rawType = 'Tabela Externa';
+            } else if(rawType.toUpperCase() === 'TABELA') {
+                rawType = 'Tabela';
+            }
+            var objLabel = rawType ? rawType : 'Tabela';
+            html += '<tr><th>' + objLabel + '</th><td>' + (tbl.table_name || '') + '</td></tr>';
 
             // Comentário da tabela
             var tableComment = tbl.table_comments || '';
-            if(!tbl.table_comments) {
+            if(tbl.object_type !== 'TABELA EXTERNA' && !tbl.table_comments) {
               tableComment = '<i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
             }
             html += '<tr><th>Comentário</th><td>' + tableComment + '</td></tr>';
 
-            // Data de Criação e Últ. DDL
+            // Se for TABELA EXTERNA, exibe os campos adicionais
+            if(tbl.object_type === 'TABELA EXTERNA') {
+              html += '<tr><th>Diretório Externo</th><td>' + (tbl.external_directory || '') + '</td></tr>';
+              html += '<tr><th>Caminho do Diretório Externo</th><td>' + (tbl.external_directory_path || '') + '</td></tr>';
+              html += '<tr><th>Local Externo</th><td>' + (tbl.external_location || '') + '</td></tr>';
+            }
+
+            // Datas
             html += '<tr><th>Data de Criação</th><td>' + formatDateTime(tbl.table_creation_date) + '</td></tr>';
             html += '<tr><th>Últ. DDL aplicado</th><td>' + formatDateTime(tbl.table_last_ddl_time) + '</td></tr>';
 
-            // Qtd. de Registros (formatado)
+            // Qtd de Registros
             var recordCountFormatted = '0';
             if(tbl.record_count) {
               recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR');
             }
             html += '<tr><th>Qtd. de Registros</th><td>' + recordCountFormatted + '</td></tr>';
-
             html += '</table>';
-            
-            // Exibe as colunas
+
+            // Tabela de colunas
             if(tbl.columns && tbl.columns.length > 0) {
               html += '<h5></h5>';
               html += '<table id="columnsTable">';
@@ -542,12 +603,10 @@ if ($acesso != "TELA AUTORIZADA") {
                 } else if(col.is_fk === 'Y') {
                   chave = '<i class="fa fa-key" style="color:green;"></i>';
                 }
-
                 var colComment = col.column_comments;
-                if(!col.column_comments) {
+                if(tbl.object_type !== 'TABELA EXTERNA' && !col.column_comments) {
                   colComment = '<i class="fa fa-exclamation-triangle text-danger" title="Falta descrição para este atributo"></i>';
                 }
-
                 html += '<tr>';
                 html += '<td>' + (col.column_name || '') + '</td>';
                 html += '<td>' + (col.data_type || '') + '</td>';
@@ -559,9 +618,20 @@ if ($acesso != "TELA AUTORIZADA") {
                 html += '</tr>';
               });
               html += '</table>';
-              // Legenda de chaves abaixo da tabela de atributos
               html += '<div id="keyLegend"><p><small><i class="fa fa-key" style="color:gold;"></i> = PK &nbsp;&nbsp; <i class="fa fa-key" style="color:green;"></i> = FK</small></p></div>';
             }
+
+            // Botão para expandir/colapsar o gráfico + Div de collapse
+            html += '<hr>';
+            html += '<button class="btn btn-sm btn-outline-primary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#chartContainer" aria-expanded="false" aria-controls="chartContainer">';
+            html += '  <i class="fa fa-chart-line"></i> Crescimento';
+            html += '</button>';
+            html += '<div class="collapse" id="chartContainer"';
+            // Atribui data-attributes para sabermos qual tabela estamos expandindo
+            html += '     data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
+            html += '  <canvas id="growthChart" style="max-width: 100%;"></canvas>';
+            html += '</div>';
+
             $('#detailsContainer').html(html);
           } else {
             $('#detailsContainer').html('<p>Nenhum detalhe encontrado.</p>');
@@ -569,6 +639,98 @@ if ($acesso != "TELA AUTORIZADA") {
         },
         error: function(){
           $('#detailsContainer').html('<p>Erro ao obter detalhes da tabela.</p>');
+        }
+      });
+    }
+
+    // Quando o collapse do gráfico for mostrado, carrega/renderiza o gráfico
+    $(document).on('shown.bs.collapse', '#chartContainer', function () {
+      // Pega as info da div
+      let $this = $(this);
+      let ambiente    = $this.data('amb');
+      let serviceName = $this.data('srv');
+      let schemaName  = $this.data('sch');
+      let tableName   = $this.data('tbl');
+      // Chama a função de carregar o histórico
+      loadTableHistory(ambiente, serviceName, schemaName, tableName);
+    });
+
+    // Função para carregar o histórico e desenhar o gráfico
+    function loadTableHistory(ambiente, serviceName, schemaName, tableName) {
+      $.ajax({
+        url: 'catalogo_sql_dev_style_ajax.php',
+        method: 'GET',
+        data: {
+          action: 'getTableHistory',
+          ambiente: ambiente,
+          service_name: serviceName,
+          schema_name: schemaName,
+          table_name: tableName
+        },
+        dataType: 'json',
+        success: function(resp) {
+          if(resp.success && resp.data && resp.data.length > 0) {
+            var data = resp.data;
+            var labels = [];
+            var values = [];
+
+            data.forEach(function(item) {
+              var dt = new Date(item.date_collect);
+              labels.push(dt.toLocaleDateString());
+              values.push(parseInt(item.record_count, 10));
+            });
+
+            // Verifica se o canvas existe
+            var canvas = document.getElementById('growthChart');
+            if(!canvas) {
+              console.error("Canvas #growthChart não encontrado!");
+              return;
+            }
+            var ctx = canvas.getContext('2d');
+
+            // Se já existir um gráfico anterior, destrói antes de criar
+            if (window.growthChart && typeof window.growthChart.destroy === 'function') {
+              window.growthChart.destroy();
+            }
+
+            // Cria novo gráfico
+            window.growthChart = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'Qtd. de Registros',
+                  data: values,
+                  borderColor: 'rgba(75, 192, 192, 1)',
+                  backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                  fill: true,
+                  tension: 0.1
+                }]
+              },
+              options: {
+                scales: {
+                  x: {
+                    title: {
+                      display: true,
+                      text: 'Data de Coleta'
+                    }
+                  },
+                  y: {
+                    title: {
+                      display: true,
+                      text: 'Qtd. de Registros'
+                    },
+                    beginAtZero: true
+                  }
+                }
+              }
+            });
+          } else {
+            $('#growthChart').replaceWith('<p>Histórico não disponível.</p>');
+          }
+        },
+        error: function() {
+          $('#growthChart').replaceWith('<p>Erro ao carregar histórico.</p>');
         }
       });
     }
@@ -581,4 +743,10 @@ if ($acesso != "TELA AUTORIZADA") {
   });
   </script>
 </body>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
 </html>
