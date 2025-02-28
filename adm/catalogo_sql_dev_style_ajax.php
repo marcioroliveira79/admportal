@@ -8,10 +8,11 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 $response = ['success' => false, 'data' => null];
 
 if ($action === 'getHierarchy') {
-    // Retorna a hierarquia de ambientes -> serviços -> schemas -> tabelas
-    // Agora também retorna object_type para identificar os diferentes tipos
+
+    // Query unificada para obter tanto as tabelas/objetos da catalog_table_content quanto os objetos da catalog_object_content_line (exceto VIEW)
     $query = "
-        SELECT
+    SELECT * FROM (
+       SELECT
             ambiente,
             host_name,
             service_name,
@@ -28,7 +29,29 @@ if ($action === 'getHierarchy') {
           AND schema_name IS NOT NULL
           AND table_name IS NOT NULL
         GROUP BY ambiente, host_name, service_name, schema_name, table_name, object_type, table_comments, date_collect
-        ORDER BY ambiente, service_name, schema_name, table_name
+
+        UNION ALL
+
+        SELECT
+            ambiente,
+            host_name,
+            service_name,
+            schema_name,
+            object_name AS table_name,
+            object_type,
+            '' AS table_comments,
+            NOW() AS date_collect,
+            MAX(object_line) AS columns_count,
+            0 AS missing_column_comments
+        FROM administracao.catalog_object_content_line
+        WHERE ambiente IS NOT NULL
+          AND service_name IS NOT NULL
+          AND schema_name IS NOT NULL
+          AND object_name IS NOT NULL
+          AND object_type NOT ILIKE 'VIEW'
+        GROUP BY ambiente, host_name, service_name, schema_name, object_name, object_type
+    ) as combined
+    ORDER BY ambiente, service_name, schema_name, table_name
     ";
     $result = pg_query($conexao, $query);
     if (!$result) {
@@ -40,6 +63,7 @@ if ($action === 'getHierarchy') {
             $response['success'] = true;
             $response['data'] = [];
         } else {
+            // Agrupa por ambiente, serviço e schema
             $byAmbiente = [];
             foreach ($rows as $r) {
                 $amb = $r['ambiente'];
@@ -62,7 +86,6 @@ if ($action === 'getHierarchy') {
                 if (!isset($byAmbiente[$amb]['services'][$srvNameWithIp][$sch])) {
                     $byAmbiente[$amb]['services'][$srvNameWithIp][$sch] = [];
                 }
-                // Define missing_descriptions somente se não for TABELA EXTERNA
                 $byAmbiente[$amb]['services'][$srvNameWithIp][$sch][] = [
                     'table_name'          => $r['table_name'],
                     'columns_count'       => $r['columns_count'],
@@ -71,6 +94,29 @@ if ($action === 'getHierarchy') {
                     'missing_descriptions'=> ($r['object_type'] !== 'TABELA EXTERNA' && (empty($r['table_comments']) || ((int)$r['missing_column_comments'] > 0))) ? true : false
                 ];
             }
+            // Função para agrupar PACKAGE com PACKAGE BODY
+            function nestPackageBodies($items) {
+                $processed = [];
+                $skip = [];
+                $count = count($items);
+                for ($i = 0; $i < $count; $i++) {
+                    if (in_array($i, $skip)) continue;
+                    $item = $items[$i];
+                    if (strtoupper($item['object_type']) == 'PACKAGE') {
+                        // Procura um PACKAGE BODY com o mesmo nome
+                        for ($j = $i + 1; $j < $count; $j++) {
+                            if (strtoupper($items[$j]['object_type']) == 'PACKAGE BODY' && $items[$j]['table_name'] == $item['table_name']) {
+                                $item['children'] = [$items[$j]];
+                                $skip[] = $j;
+                                break;
+                            }
+                        }
+                    }
+                    $processed[] = $item;
+                }
+                return $processed;
+            }
+
             $hierarchy = [];
             foreach ($byAmbiente as $amb => $dataAmb) {
                 $services = $dataAmb['services'];
@@ -78,13 +124,20 @@ if ($action === 'getHierarchy') {
                 foreach ($services as $srvKey => $schemasVal) {
                     $schemaArr = [];
                     foreach ($schemasVal as $schemaKey => $tblsVal) {
+                        // Agrupa PACKAGE BODY em PACKAGE, se houver
+                        $tblsVal = nestPackageBodies($tblsVal);
                         // Ordena os objetos dentro do schema
                         usort($tblsVal, function($a, $b) {
                             $order = array(
                                 'TABELA' => 1,
                                 'TABELA EXTERNA' => 2,
                                 'VIEW' => 3,
-                                'VIEW MATERIALIZADA' => 4
+                                'VIEW MATERIALIZADA' => 4,
+                                'PACKAGE' => 5,
+                                'PACKAGE BODY' => 6,
+                                'FUNCTION' => 7,
+                                'PROCEDURE' => 8,
+                                'TRIGGER' => 9
                             );
                             $wA = isset($order[$a['object_type']]) ? $order[$a['object_type']] : 999;
                             $wB = isset($order[$b['object_type']]) ? $order[$b['object_type']] : 999;
@@ -117,13 +170,11 @@ if ($action === 'getHierarchy') {
     exit;
 }
 elseif ($action === 'getTableDetails') {
-    // Retorna detalhes de uma tabela específica
     $ambiente    = $_GET['ambiente']     ?? '';
     $serviceName = $_GET['service_name'] ?? '';
     $schemaName  = $_GET['schema_name']  ?? '';
     $tableName   = $_GET['table_name']   ?? '';
 
-    // Extrai IP e ajusta service_name (caso tenha algo entre parênteses)
     if (preg_match('/\((.*?)\)$/', $serviceName, $m)) {
         $ip = trim($m[1]);
     }
@@ -166,13 +217,12 @@ elseif ($action === 'getTableDetails') {
         exit;
     }
 
-    // Consulta das colunas da tabela
     $queryColumns = "
         SELECT DISTINCT
                column_name,
                data_type,
-               data_length,
-               column_comments,
+               data_length,               
+               CASE WHEN object_type = 'TABELA EXTERNA' THEN '' ELSE COALESCE(column_comments, '') END AS column_comments,
                is_nullable,
                is_unique,
                is_pk,
@@ -201,8 +251,51 @@ elseif ($action === 'getTableDetails') {
     echo json_encode($response);
     exit;
 }
+elseif ($action === 'getObjectDetails') {
+    $ambiente    = $_GET['ambiente']     ?? '';
+    $serviceName = $_GET['service_name'] ?? '';
+    $schemaName  = $_GET['schema_name']  ?? '';
+    $objectName  = $_GET['object_name']  ?? '';
+
+    $svc = preg_replace('/\(.*?\)/', '', $serviceName);
+    $svc = trim($svc);
+
+    $query = "
+        SELECT ambiente,
+               service_name,
+               schema_name,
+               object_name,
+               object_type,
+               STRING_AGG(object_content, E'\n' ORDER BY object_line) as object_content
+        FROM administracao.catalog_object_content_line
+        WHERE ambiente = $1
+          AND service_name = $2
+          AND schema_name = $3
+          AND object_name = $4
+        GROUP BY ambiente, service_name, schema_name, object_name, object_type
+        LIMIT 1
+    ";
+    $params = [$ambiente, $svc, $schemaName, $objectName];
+    $result = pg_query_params($conexao, $query, $params);
+    if (!$result) {
+        $response['success'] = false;
+        $response['data'] = pg_last_error($conexao);
+        echo json_encode($response);
+        exit;
+    }
+    $row = pg_fetch_assoc($result);
+    if (!$row) {
+        $response['success'] = true;
+        $response['data'] = null;
+        echo json_encode($response);
+        exit;
+    }
+    $response['success'] = true;
+    $response['data'] = $row;
+    echo json_encode($response);
+    exit;
+}
 elseif ($action === 'search') {
-    // Ação para buscar por schema, tabela ou atributo
     $amb = $_GET['ambiente'] ?? '';
     $tipo = $_GET['tipo'] ?? '';
     $texto = $_GET['texto'] ?? '';
@@ -241,7 +334,7 @@ elseif ($action === 'search') {
         }
         elseif ($tipo === 'table') {
             $sql = "
-                SELECT DISTINCT ambiente, service_name, schema_name, table_name
+                SELECT DISTINCT ambiente, service_name, schema_name, table_name, object_type
                 FROM administracao.catalog_table_content
                 WHERE ambiente = $1
                   AND table_name ILIKE $2
@@ -257,7 +350,8 @@ elseif ($action === 'search') {
                     'ambiente'     => $r['ambiente'],
                     'service_name' => $r['service_name'],
                     'schema_name'  => $r['schema_name'],
-                    'table_name'   => $r['table_name']
+                    'table_name'   => $r['table_name'],
+                    'object_type'  => $r['object_type']
                 ];
             }
             $response['success'] = true;
@@ -265,7 +359,7 @@ elseif ($action === 'search') {
         }
         elseif ($tipo === 'attribute') {
             $sql = "
-                SELECT DISTINCT ambiente, service_name, schema_name, table_name
+                SELECT DISTINCT ambiente, service_name, schema_name, table_name, object_type
                 FROM administracao.catalog_table_content
                 WHERE ambiente = $1
                   AND column_name ILIKE $2
@@ -281,7 +375,8 @@ elseif ($action === 'search') {
                     'ambiente'     => $r['ambiente'],
                     'service_name' => $r['service_name'],
                     'schema_name'  => $r['schema_name'],
-                    'table_name'   => $r['table_name']
+                    'table_name'   => $r['table_name'],
+                    'object_type'  => $r['object_type']
                 ];
             }
             $response['success'] = true;
@@ -321,7 +416,6 @@ elseif ($action === 'getAmbientes') {
     exit;
 }
 elseif ($action === 'getTableHistory') {
-    // Retorna o histórico de record_count para uma tabela
     $ambiente    = $_GET['ambiente']     ?? '';
     $serviceName = $_GET['service_name'] ?? '';
     $schemaName  = $_GET['schema_name']  ?? '';
@@ -334,7 +428,6 @@ elseif ($action === 'getTableHistory') {
         exit;
     }
 
-    // Remove possíveis parênteses do serviceName
     $svc = preg_replace('/\(.*?\)/', '', $serviceName);
     $svc = trim($svc);
 

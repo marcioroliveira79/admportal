@@ -28,7 +28,7 @@ if ($acesso != "TELA AUTORIZADA") {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  
   <style>
     /* Garante que html/body ocupem 100% da tela */
     html, body {
@@ -69,6 +69,13 @@ if ($acesso != "TELA AUTORIZADA") {
       border: 1px solid #ddd;
       border-radius: 5px;
       background-color: #f9f9f9;
+    }
+    /* Loader para ambientes - inicialmente visível */
+    #ambientesLoader {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+      display: block;
     }
     /* Drag bar */
     #dragBar {
@@ -192,6 +199,7 @@ if ($acesso != "TELA AUTORIZADA") {
               <!-- Será preenchido dinamicamente via AJAX -->
               <option value="">Carregando...</option>
             </select>
+            <div id="ambientesLoader">Carregando ambientes...</div>
           </div>
           <div class="mb-2">
             <label for="tipoBusca" class="form-label"><strong>Tipo de busca</strong></label>
@@ -240,6 +248,31 @@ if ($acesso != "TELA AUTORIZADA") {
   // Função para converter uma string para Title Case
   function toTitleCase(str) {
     return str.toLowerCase().replace(/\b\w/g, function(letter) { return letter.toUpperCase(); });
+  }
+
+  // Função que formata o código: remove linhas em branco consecutivas e adiciona numeração
+  function formatCodeBlock(code, removeExtraLines = true, leaveOneBlankLine = false) {
+    if (removeExtraLines) {
+        // Se leaveOneBlankLine for true, substitui por duas quebras (ou seja, deixa uma linha em branco);
+        // se false, substitui por uma única quebra (removendo a linha em branco)
+        if (leaveOneBlankLine) {
+            code = code.replace(/(\n\s*\n\s*)+/g, "\n\n");
+        } else {
+            code = code.replace(/(\n\s*\n\s*)+/g, "\n");
+        }
+    }
+    
+    var lines = code.split("\n");
+    var lineNumbersHtml = '';
+    for (var i = 0; i < lines.length; i++) {
+        lineNumbersHtml += (i + 1) + '<br>';
+    }
+    var codeHtml = lines.join("<br>");
+    var html = '<div style="display: flex; font-family: monospace; background-color:#f8f9fa; padding:15px; border-radius:5px;">';
+    html += '<div style="text-align: right; padding-right: 10px; border-right: 1px solid #ddd;">' + lineNumbersHtml + '</div>';
+    html += '<div style="padding-left: 10px; white-space: pre-wrap;">' + codeHtml + '</div>';
+    html += '</div>';
+    return html;
   }
 
   // Script para redimensionar o sidebar
@@ -308,7 +341,7 @@ if ($acesso != "TELA AUTORIZADA") {
                 html += '<li>' + r.ambiente + '/' + r.service_name + '/' + r.schema_name + '/</li>';
               } else {
                 var pathText = r.ambiente + '/' + r.service_name + '/' + r.schema_name + '/' + r.table_name;
-                html += '<li><a href="#" class="tableLink" data-amb="' + r.ambiente + '" data-srv="' + r.service_name + '" data-sch="' + r.schema_name + '" data-tbl="' + r.table_name + '">' + pathText + '</a></li>';
+                html += '<li><a href="#" class="tableLink" data-amb="' + r.ambiente + '" data-srv="' + r.service_name + '" data-sch="' + r.schema_name + '" data-tbl="' + r.table_name + '" data-type="' + (r.object_type || "TABELA") + '">' + pathText + '</a></li>';
               }
             });
             html += '</ul>';
@@ -321,7 +354,8 @@ if ($acesso != "TELA AUTORIZADA") {
               var srv = $(this).data('srv');
               var sch = $(this).data('sch');
               var tbl = $(this).data('tbl');
-              showTableDetails(amb, srv, sch, tbl);
+              var type = $(this).data('type');
+              showTableDetails(amb, srv, sch, tbl, type);
             });
           } else {
             $('#detailsContainer').html('<p>Erro na busca: ' + resp.data + '</p>');
@@ -334,12 +368,16 @@ if ($acesso != "TELA AUTORIZADA") {
     });
 
     function loadAmbientes(){
+      $("#ambienteBusca").prop('disabled', true);
+      $("#ambientesLoader").show();
       $.ajax({
         url: 'catalogo_sql_dev_style_ajax.php',
         method: 'GET',
         data: { action: 'getAmbientes' },
         dataType: 'json',
         success: function(resp) {
+          $("#ambienteBusca").prop('disabled', false);
+          $("#ambientesLoader").hide();
           if(resp.success) {
             var ambientes = resp.data;
             var $select = $('#ambienteBusca');
@@ -353,12 +391,17 @@ if ($acesso != "TELA AUTORIZADA") {
           }
         },
         error: function() {
+          $("#ambienteBusca").prop('disabled', false);
+          $("#ambientesLoader").hide();
           $('#ambienteBusca').html('<option value="">Erro ao carregar</option>');
         }
       });
     }
 
     function loadHierarchy(){
+      // Exibe uma mensagem de carregamento no container onde ficará a árvore
+      $('#treeContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando...</div>');
+      
       $.ajax({
         url: 'catalogo_sql_dev_style_ajax.php',
         method: 'GET',
@@ -366,6 +409,7 @@ if ($acesso != "TELA AUTORIZADA") {
         dataType: 'json',
         success: function(resp) {
           if(resp.success) {
+            // Monta a árvore normalmente
             buildTree(resp.data);
           } else {
             $('#treeContainer').html('<p>Não há dados de conexão.</p>');
@@ -431,12 +475,17 @@ if ($acesso != "TELA AUTORIZADA") {
                     groups[type].push(tblObj);
                   });
 
-                  // Ordem de exibição
+                  // Ordem de exibição (incluindo os novos tipos)
                   var order = {
                     'TABELA': 1,
                     'TABELA EXTERNA': 2,
                     'VIEW': 3,
-                    'VIEW MATERIALIZADA': 4
+                    'VIEW MATERIALIZADA': 4,
+                    'PACKAGE': 5,
+                    'PACKAGE BODY': 6,
+                    'FUNCTION': 7,
+                    'PROCEDURE': 8,
+                    'TRIGGER': 9
                   };
                   var groupKeys = Object.keys(groups).sort(function(a, b){
                     var weightA = order[a] || 999;
@@ -466,6 +515,21 @@ if ($acesso != "TELA AUTORIZADA") {
                       case "VIEW MATERIALIZADA":
                         iconGrupo = "fa-eye text-warning";
                         break;
+                      case "PACKAGE":
+                        iconGrupo = "fa-box text-dark";
+                        break;
+                      case "PACKAGE BODY":
+                        iconGrupo = "fa-boxes text-dark";
+                        break;
+                      case "FUNCTION":
+                        iconGrupo = "fa-code text-success";
+                        break;
+                      case "PROCEDURE":
+                        iconGrupo = "fa-cogs text-success";
+                        break;
+                      case "TRIGGER":
+                        iconGrupo = "fa-bolt text-danger";
+                        break;
                       default:
                         iconGrupo = "fa-table text-info";
                     }
@@ -477,9 +541,15 @@ if ($acesso != "TELA AUTORIZADA") {
 
                     var $groupChildUL = $('<ul class="tree-children list-unstyled"></ul>');
                     items.forEach(function(tblObj){
-                      var tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
-                      if(tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA'){
-                        tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                      var tableLabel = "";
+                      var newTypes = ['PACKAGE','PACKAGE BODY','FUNCTION','PROCEDURE','TRIGGER'];
+                      if(newTypes.indexOf(tblObj.object_type.toUpperCase()) >= 0) {
+                        tableLabel = tblObj.table_name;
+                      } else {
+                        tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
+                        if(tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA'){
+                          tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                        }
                       }
                       var $liTbl = createTreeNode(iconGrupo, tableLabel);
                       $liTbl.children('.tree-node').on('click', function(e){
@@ -488,9 +558,30 @@ if ($acesso != "TELA AUTORIZADA") {
                           ambObj.ambiente,
                           serviceObj.service_name,
                           schemaObj.schema_name,
-                          tblObj.table_name
+                          tblObj.table_name,
+                          tblObj.object_type
                         );
                       });
+                      // Se o objeto (PACKAGE) tiver children (seu PACKAGE BODY), cria um nível extra
+                      if(tblObj.children && tblObj.children.length > 0) {
+                        var $childList = $('<ul class="tree-children list-unstyled"></ul>');
+                        tblObj.children.forEach(function(childObj){
+                          var childLabel = childObj.table_name;
+                          var $childLi = createTreeNode("fa-boxes text-dark", childLabel);
+                          $childLi.children('.tree-node').on('click', function(e){
+                              e.stopPropagation();
+                              showTableDetails(
+                                ambObj.ambiente,
+                                serviceObj.service_name,
+                                schemaObj.schema_name,
+                                childObj.table_name,
+                                childObj.object_type
+                              );
+                          });
+                          $childList.append($childLi);
+                        });
+                        $liTbl.append($childList);
+                      }
                       $groupChildUL.append($liTbl);
                     });
 
@@ -525,137 +616,238 @@ if ($acesso != "TELA AUTORIZADA") {
       return $li;
     }
 
-    function showTableDetails(ambiente, serviceName, schemaName, tableName){
+    function showTableDetails(ambiente, serviceName, schemaName, tableName, objectType) {
       var svc = serviceName.replace(/\(.*?\)/, '').trim();
       var path = ambiente + '/' + svc + '/' + schemaName + '/' + tableName;
       $('#tablePath').text(path);
       $('#detailsContainer').html('<div class="loading">Carregando...</div>');
-      $.ajax({
-        url: 'catalogo_sql_dev_style_ajax.php',
-        method: 'GET',
-        data: {
-          action: 'getTableDetails',
-          ambiente: ambiente,
-          service_name: serviceName,
-          schema_name: schemaName,
-          table_name: tableName
-        },
-        dataType: 'json',
-        success: function(resp){
-          if(resp.success && resp.data){
-            var tbl = resp.data;
-            var html = '<table id="detailsTable">';
-            html += '<tr><th>Ambiente</th><td>' + (tbl.ambiente || '') + '</td></tr>';
-            html += '<tr><th>Service Name</th><td>' + (tbl.service_name || '') + '</td></tr>';
-            html += '<tr><th>Schema</th><td>' + (tbl.schema_name || '') + '</td></tr>';
-
-            // Tipo de objeto
-            var rawType = tbl.object_type || '';
-            if(rawType.toUpperCase() === 'VIEW MATERIALIZADA') {
-                rawType = 'View Materializada';
-            } else if(rawType.toUpperCase() === 'VIEW') {
-                rawType = 'View';
-            } else if(rawType.toUpperCase() === 'TABELA EXTERNA') {
-                rawType = 'Tabela Externa';
-            } else if(rawType.toUpperCase() === 'TABELA') {
-                rawType = 'Tabela';
+      
+      // Se for um objeto de código (Package, Procedure, etc.), chama getObjectDetails
+      if (objectType && ['PACKAGE', 'PACKAGE BODY', 'FUNCTION', 'PROCEDURE', 'TRIGGER'].includes(objectType.toUpperCase())) {
+        $.ajax({
+          url: 'catalogo_sql_dev_style_ajax.php',
+          method: 'GET',
+          data: {
+            action: 'getObjectDetails',
+            ambiente: ambiente,
+            service_name: serviceName,
+            schema_name: schemaName,
+            object_name: tableName
+          },
+          dataType: 'json',
+          success: function(resp) {
+            if(resp.success && resp.data){
+                var obj = resp.data;
+                // Processa o código removendo múltiplas linhas em branco
+                var rawCode = obj.object_content;
+                rawCode = rawCode.replace(/(\n\s*\n\s*)+/g, "\n\n");
+                // Gera o bloco de código formatado com numeração de linhas
+                var formattedCode = formatCodeBlock(rawCode);
+                var html = '<h5>' + obj.object_type + ' - ' + obj.object_name + '</h5>';
+                html += '<button id="copyCodeButton" class="btn btn-sm btn-outline-secondary" style="margin-bottom:10px;">Copiar Código</button>';
+                html += formattedCode;
+                $('#detailsContainer').html(html);
+                $('#copyCodeButton').click(function(){
+                    navigator.clipboard.writeText(rawCode).then(function(){
+                         alert("Código copiado!");
+                    }, function(err){
+                         alert("Erro ao copiar o código: " + err);
+                    });
+                });
+            } else {
+                $('#detailsContainer').html('<p>Nenhum detalhe encontrado.</p>');
             }
-            var objLabel = rawType ? rawType : 'Tabela';
-            html += '<tr><th>' + objLabel + '</th><td>' + (tbl.table_name || '') + '</td></tr>';
-
-            // Comentário da tabela
-            var tableComment = tbl.table_comments || '';
-            if(tbl.object_type !== 'TABELA EXTERNA' && !tbl.table_comments) {
-              tableComment = '<i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
-            }
-            html += '<tr><th>Comentário</th><td>' + tableComment + '</td></tr>';
-
-            // Se for TABELA EXTERNA, exibe os campos adicionais
-            if(tbl.object_type === 'TABELA EXTERNA') {
-              html += '<tr><th>Diretório Externo</th><td>' + (tbl.external_directory || '') + '</td></tr>';
-              html += '<tr><th>Caminho do Diretório Externo</th><td>' + (tbl.external_directory_path || '') + '</td></tr>';
-              html += '<tr><th>Local Externo</th><td>' + (tbl.external_location || '') + '</td></tr>';
-            }
-
-            // Datas
-            html += '<tr><th>Data de Criação</th><td>' + formatDateTime(tbl.table_creation_date) + '</td></tr>';
-            html += '<tr><th>Últ. DDL aplicado</th><td>' + formatDateTime(tbl.table_last_ddl_time) + '</td></tr>';
-
-            // Qtd de Registros
-            var recordCountFormatted = '0';
-            if(tbl.record_count) {
-              recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR');
-            }
-            html += '<tr><th>Qtd. de Registros</th><td>' + recordCountFormatted + '</td></tr>';
-            html += '</table>';
-
-            // Tabela de colunas
-            if(tbl.columns && tbl.columns.length > 0) {
-              html += '<h5></h5>';
-              html += '<table id="columnsTable">';
-              html += '<tr><th>Coluna</th><th>Tipo</th><th>Tamanho</th><th>Nulo</th><th>Único</th><th>Chave</th><th>Comentários</th></tr>';
-              tbl.columns.forEach(function(col){
-                var chave = '';
-                if(col.is_pk === 'Y' && col.is_fk === 'Y') {
-                  chave = '<i class="fa fa-key" style="color:gold;"></i> <i class="fa fa-key" style="color:green;"></i>';
-                } else if(col.is_pk === 'Y') {
-                  chave = '<i class="fa fa-key" style="color:gold;"></i>';
-                } else if(col.is_fk === 'Y') {
-                  chave = '<i class="fa fa-key" style="color:green;"></i>';
-                }
-                var colComment = col.column_comments;
-                if(tbl.object_type !== 'TABELA EXTERNA' && !col.column_comments) {
-                  colComment = '<i class="fa fa-exclamation-triangle text-danger" title="Falta descrição para este atributo"></i>';
-                }
-                html += '<tr>';
-                html += '<td>' + (col.column_name || '') + '</td>';
-                html += '<td>' + (col.data_type || '') + '</td>';
-                html += '<td>' + (col.data_length || '') + '</td>';
-                html += '<td>' + (col.is_nullable || '') + '</td>';
-                html += '<td>' + (col.is_unique || '') + '</td>';
-                html += '<td>' + chave + '</td>';
-                html += '<td>' + colComment + '</td>';
-                html += '</tr>';
-              });
-              html += '</table>';
-              html += '<div id="keyLegend"><p><small><i class="fa fa-key" style="color:gold;"></i> = PK &nbsp;&nbsp; <i class="fa fa-key" style="color:green;"></i> = FK</small></p></div>';
-            }
-
-            // Botão para expandir/colapsar o gráfico + Div de collapse
-            html += '<hr>';
-            html += '<button class="btn btn-sm btn-outline-primary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#chartContainer" aria-expanded="false" aria-controls="chartContainer">';
-            html += '  <i class="fa fa-chart-line"></i> Crescimento';
-            html += '</button>';
-            html += '<div class="collapse" id="chartContainer"';
-            // Atribui data-attributes para sabermos qual tabela estamos expandindo
-            html += '     data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
-            html += '  <canvas id="growthChart" style="max-width: 100%;"></canvas>';
-            html += '</div>';
-
-            $('#detailsContainer').html(html);
-          } else {
-            $('#detailsContainer').html('<p>Nenhum detalhe encontrado.</p>');
+          },
+          error: function(){
+            $('#detailsContainer').html('<p>Erro ao obter detalhes do objeto.</p>');
           }
-        },
-        error: function(){
-          $('#detailsContainer').html('<p>Erro ao obter detalhes da tabela.</p>');
-        }
-      });
+        });
+      } 
+      else {
+        // Caso contrário, assume que é TABELA, VIEW etc.
+        $.ajax({
+          url: 'catalogo_sql_dev_style_ajax.php',
+          method: 'GET',
+          data: {
+            action: 'getTableDetails',
+            ambiente: ambiente,
+            service_name: serviceName,
+            schema_name: schemaName,
+            table_name: tableName
+          },
+          dataType: 'json',
+          success: function(resp){
+            if(resp.success && resp.data){
+              var tbl = resp.data;
+              var html = '<table id="detailsTable">';
+              html += '<tr><th>Ambiente</th><td>' + (tbl.ambiente || '') + '</td></tr>';
+              html += '<tr><th>Service Name</th><td>' + (tbl.service_name || '') + '</td></tr>';
+              html += '<tr><th>Schema</th><td>' + (tbl.schema_name || '') + '</td></tr>';
+              
+              var rawType = tbl.object_type || '';
+              if(rawType.toUpperCase() === 'VIEW MATERIALIZADA') {
+                  rawType = 'View Materializada';
+              } else if(rawType.toUpperCase() === 'VIEW') {
+                  rawType = 'View';
+              } else if(rawType.toUpperCase() === 'TABELA EXTERNA') {
+                  rawType = 'Tabela Externa';
+              } else if(rawType.toUpperCase() === 'TABELA') {
+                  rawType = 'Tabela';
+              }
+              var objLabel = rawType ? rawType : 'Tabela';
+              html += '<tr><th>' + objLabel + '</th><td>' + (tbl.table_name || '') + '</td></tr>';
+
+              var tableComment = tbl.table_comments || '';
+              if(tbl.object_type !== 'TABELA EXTERNA' && !tbl.table_comments) {
+                tableComment = '<i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+              }
+              html += '<tr><th>Comentário</th><td>' + tableComment + '</td></tr>';
+
+              if(tbl.object_type === 'TABELA EXTERNA') {
+                html += '<tr><th>Diretório Externo</th><td>' + (tbl.external_directory || '') + '</td></tr>';
+                html += '<tr><th>Caminho do Diretório Externo</th><td>' + (tbl.external_directory_path || '') + '</td></tr>';
+                html += '<tr><th>Local Externo</th><td>' + (tbl.external_location || '') + '</td></tr>';
+              }
+
+              html += '<tr><th>Data de Criação</th><td>' + formatDateTime(tbl.table_creation_date) + '</td></tr>';
+              html += '<tr><th>Últ. DDL aplicado</th><td>' + formatDateTime(tbl.table_last_ddl_time) + '</td></tr>';
+
+              var recordCountFormatted = '0';
+              if(tbl.record_count) {
+                recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR');
+              }
+              html += '<tr><th>Qtd. de Registros</th><td>' + recordCountFormatted + '</td></tr>';
+              html += '</table>';
+
+              if(tbl.columns && tbl.columns.length > 0) {
+                html += '<h5></h5>';
+                html += '<table id="columnsTable">';
+                html += '<tr><th>Coluna</th><th>Tipo</th><th>Tamanho</th><th>Nulo</th><th>Único</th><th>Chave</th><th>Comentários</th></tr>';
+                tbl.columns.forEach(function(col){
+                  var chave = '';
+                  if(col.is_pk === 'Y' && col.is_fk === 'Y') {
+                    chave = '<i class="fa fa-key" style="color:gold;"></i> <i class="fa fa-key" style="color:green;"></i>';
+                  } else if(col.is_pk === 'Y') {
+                    chave = '<i class="fa fa-key" style="color:gold;"></i>';
+                  } else if(col.is_fk === 'Y') {
+                    chave = '<i class="fa fa-key" style="color:green;"></i>';
+                  }
+                  var colComment = col.column_comments;
+                  if(tbl.object_type !== 'TABELA EXTERNA' && !col.column_comments) {
+                    colComment = '<i class="fa fa-exclamation-triangle text-danger" title="Falta descrição para este atributo"></i>';
+                  }
+                  html += '<tr>';
+                  html += '<td>' + (col.column_name || '') + '</td>';
+                  html += '<td>' + (col.data_type || '') + '</td>';
+                  html += '<td>' + (col.data_length || '') + '</td>';
+                  html += '<td>' + (col.is_nullable || '') + '</td>';
+                  html += '<td>' + (col.is_unique || '') + '</td>';
+                  html += '<td>' + chave + '</td>';
+                  html += '<td>' + colComment + '</td>';
+                  html += '</tr>';
+                });
+                html += '</table>';
+                html += '<div id="keyLegend"><p><small><i class="fa fa-key" style="color:gold;"></i> = PK &nbsp;&nbsp; <i class="fa fa-key" style="color:green;"></i> = FK</small></p></div>';
+              }
+
+              // Botão de Crescimento
+              html += '<hr>';
+              html += '<button class="btn btn-sm btn-outline-primary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#chartContainer" aria-expanded="false" aria-controls="chartContainer">';
+              html += '  <i class="fa fa-chart-line"></i> Crescimento';
+              html += '</button>';
+              html += '<div class="collapse" id="chartContainer"';
+              html += '     data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
+              html += '  <canvas id="growthChart" style="max-width: 100%;"></canvas>';
+              html += '</div>';
+
+              // >>>>>> NOVO: se for VIEW ou VIEW MATERIALIZADA, cria botão "Código"
+              if (rawType.toUpperCase() === 'VIEW' || rawType.toUpperCase() === 'VIEW MATERIALIZADA') {
+                html += '<button class="btn btn-sm btn-outline-secondary mb-2 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#viewCodeContainer" aria-expanded="false" aria-controls="viewCodeContainer">';
+                html += '  <i class="fa fa-code"></i> Código';
+                html += '</button>';
+                html += '<div class="collapse" id="viewCodeContainer" data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
+                html += '  <div id="viewCodeBlock" style="min-height: 150px; padding: 10px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 5px;">';
+                html += '    <i class="fa fa-spinner fa-spin"></i> Carregando...';
+                html += '  </div>';
+                html += '</div>';
+              }
+
+              $('#detailsContainer').html(html);
+            } else {
+              $('#detailsContainer').html('<p>Nenhum detalhe encontrado.</p>');
+            }
+          },
+          error: function(){
+            $('#detailsContainer').html('<p>Erro ao obter detalhes da tabela.</p>');
+          }
+        });
+      }
     }
 
-    // Quando o collapse do gráfico for mostrado, carrega/renderiza o gráfico
+    // Evento que dispara ao expandir a div #chartContainer (já existia)
     $(document).on('shown.bs.collapse', '#chartContainer', function () {
-      // Pega as info da div
       let $this = $(this);
       let ambiente    = $this.data('amb');
       let serviceName = $this.data('srv');
       let schemaName  = $this.data('sch');
       let tableName   = $this.data('tbl');
-      // Chama a função de carregar o histórico
       loadTableHistory(ambiente, serviceName, schemaName, tableName);
     });
 
-    // Função para carregar o histórico e desenhar o gráfico
+    // >>>>>> NOVO: Evento ao expandir #viewCodeContainer
+    $(document).on('shown.bs.collapse', '#viewCodeContainer', function () {
+      let $this = $(this);
+      let ambiente    = $this.data('amb');
+      let serviceName = $this.data('srv');
+      let schemaName  = $this.data('sch');
+      let tableName   = $this.data('tbl');  // nome da VIEW
+      loadViewCode(ambiente, serviceName, schemaName, tableName);
+    });
+
+    // >>>>>> NOVO: Função para buscar o código da VIEW
+    function loadViewCode(ambiente, serviceName, schemaName, viewName) {
+      $.ajax({
+        url: 'catalogo_sql_dev_style_ajax.php',
+        method: 'GET',
+        data: {
+          action: 'getObjectDetails',
+          ambiente: ambiente,
+          service_name: serviceName,
+          schema_name: schemaName,
+          object_name: viewName
+        },
+        dataType: 'json',
+        success: function(resp) {
+          if (resp.success && resp.data) {
+            var obj = resp.data;
+            var rawCode = obj.object_content || '';
+            // Remove linhas em branco extras
+            rawCode = rawCode.replace(/(\n\s*\n\s*)+/g, "\n\n");
+            // Formata
+            var formattedCode = formatCodeBlock(rawCode);
+            var html = '<h5>' + (obj.object_type || 'VIEW') + ' - ' + obj.object_name + '</h5>';
+            html += '<button id="copyViewCodeButton" class="btn btn-sm btn-outline-secondary mb-2">Copiar Código</button>';
+            html += formattedCode;
+
+            $('#viewCodeBlock').html(html);
+
+            $('#copyViewCodeButton').click(function(){
+              navigator.clipboard.writeText(rawCode).then(function(){
+                alert("Código copiado!");
+              }, function(err){
+                alert("Erro ao copiar o código: " + err);
+              });
+            });
+          } else {
+            $('#viewCodeBlock').html('<p>Nenhum código encontrado para a VIEW.</p>');
+          }
+        },
+        error: function() {
+          $('#viewCodeBlock').html('<p>Erro ao carregar o código da VIEW.</p>');
+        }
+      });
+    }
+
     function loadTableHistory(ambiente, serviceName, schemaName, tableName) {
       $.ajax({
         url: 'catalogo_sql_dev_style_ajax.php',
@@ -680,7 +872,6 @@ if ($acesso != "TELA AUTORIZADA") {
               values.push(parseInt(item.record_count, 10));
             });
 
-            // Verifica se o canvas existe
             var canvas = document.getElementById('growthChart');
             if(!canvas) {
               console.error("Canvas #growthChart não encontrado!");
@@ -688,12 +879,10 @@ if ($acesso != "TELA AUTORIZADA") {
             }
             var ctx = canvas.getContext('2d');
 
-            // Se já existir um gráfico anterior, destrói antes de criar
             if (window.growthChart && typeof window.growthChart.destroy === 'function') {
               window.growthChart.destroy();
             }
 
-            // Cria novo gráfico
             window.growthChart = new Chart(ctx, {
               type: 'line',
               data: {
