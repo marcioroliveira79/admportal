@@ -9,7 +9,8 @@ $response = ['success' => false, 'data' => null];
 
 if ($action === 'getHierarchy') {
 
-    // Query unificada para obter tanto as tabelas/objetos da catalog_table_content quanto os objetos da catalog_object_content_line (exceto VIEW)
+    // Query unificada para obter objetos (tabelas, views, packages, etc.),
+    // agora incluindo MAX(object_status) para sabermos se está INVALID ou não.
     $query = "
     SELECT * FROM (
        SELECT
@@ -22,7 +23,10 @@ if ($action === 'getHierarchy') {
             table_comments,
             date_collect,
             COUNT(column_name) AS columns_count,
-            SUM(CASE WHEN column_comments IS NULL OR column_comments = '' THEN 1 ELSE 0 END) AS missing_column_comments
+            SUM(
+              CASE WHEN column_comments IS NULL OR column_comments = '' THEN 1 ELSE 0 END
+            ) AS missing_column_comments,
+            MAX(object_status) AS object_status
         FROM administracao.catalog_table_content
         WHERE ambiente IS NOT NULL
           AND service_name IS NOT NULL
@@ -42,7 +46,8 @@ if ($action === 'getHierarchy') {
             '' AS table_comments,
             NOW() AS date_collect,
             MAX(object_line) AS columns_count,
-            0 AS missing_column_comments
+            0 AS missing_column_comments,
+            MAX(object_status) AS object_status
         FROM administracao.catalog_object_content_line
         WHERE ambiente IS NOT NULL
           AND service_name IS NOT NULL
@@ -63,7 +68,7 @@ if ($action === 'getHierarchy') {
             $response['success'] = true;
             $response['data'] = [];
         } else {
-            // Agrupa por ambiente, serviço e schema
+            // Agrupar por ambiente -> service -> schema
             $byAmbiente = [];
             foreach ($rows as $r) {
                 $amb = $r['ambiente'];
@@ -91,10 +96,13 @@ if ($action === 'getHierarchy') {
                     'columns_count'       => $r['columns_count'],
                     'table_comments'      => $r['table_comments'],
                     'object_type'         => $r['object_type'],
-                    'missing_descriptions'=> ($r['object_type'] !== 'TABELA EXTERNA' && (empty($r['table_comments']) || ((int)$r['missing_column_comments'] > 0))) ? true : false
+                    'missing_descriptions'=> ($r['object_type'] !== 'TABELA EXTERNA' && (empty($r['table_comments']) || ((int)$r['missing_column_comments'] > 0))) ? true : false,
+                    // Adicionar o status
+                    'object_status'       => $r['object_status']
                 ];
             }
-            // Função para agrupar PACKAGE com PACKAGE BODY
+
+            // Função para agrupar PACKAGE BODY em PACKAGE
             function nestPackageBodies($items) {
                 $processed = [];
                 $skip = [];
@@ -124,11 +132,11 @@ if ($action === 'getHierarchy') {
                 foreach ($services as $srvKey => $schemasVal) {
                     $schemaArr = [];
                     foreach ($schemasVal as $schemaKey => $tblsVal) {
-                        // Agrupa PACKAGE BODY em PACKAGE, se houver
+                        // Agrupa PACKAGE BODY em PACKAGE
                         $tblsVal = nestPackageBodies($tblsVal);
                         // Ordena os objetos dentro do schema
                         usort($tblsVal, function($a, $b) {
-                            $order = array(
+                            $order = [
                                 'TABELA' => 1,
                                 'TABELA EXTERNA' => 2,
                                 'VIEW' => 3,
@@ -138,7 +146,7 @@ if ($action === 'getHierarchy') {
                                 'FUNCTION' => 7,
                                 'PROCEDURE' => 8,
                                 'TRIGGER' => 9
-                            );
+                            ];
                             $wA = isset($order[$a['object_type']]) ? $order[$a['object_type']] : 999;
                             $wB = isset($order[$b['object_type']]) ? $order[$b['object_type']] : 999;
                             if ($wA === $wB) {
@@ -175,9 +183,6 @@ elseif ($action === 'getTableDetails') {
     $schemaName  = $_GET['schema_name']  ?? '';
     $tableName   = $_GET['table_name']   ?? '';
 
-    if (preg_match('/\((.*?)\)$/', $serviceName, $m)) {
-        $ip = trim($m[1]);
-    }
     $svc = preg_replace('/\(.*?\)/', '', $serviceName);
     $svc = trim($svc);
 
@@ -456,9 +461,51 @@ elseif ($action === 'getTableHistory') {
     echo json_encode($response);
     exit;
 }
+// >>> Rota para relacionamentos com atributos
+elseif ($action === 'getTableRelationships') {
+    $ambiente    = $_GET['ambiente']     ?? '';
+    $serviceName = $_GET['service_name'] ?? '';
+    $schemaName  = $_GET['schema_name']  ?? '';
+    $tableName   = $_GET['table_name']   ?? '';
+
+    $svc = preg_replace('/\(.*?\)/', '', $serviceName);
+    $svc = trim($svc);
+
+    $sql = "
+        SELECT DISTINCT
+            table_origin,
+            attribute_origin,
+            table_reference,
+            attribute_reference,
+            constraint_name,
+            direction
+        FROM administracao.catalog_table_reference
+        WHERE service_name   = $1
+          AND schema_origin  = $2
+          AND table_origin   = $3
+        ORDER BY constraint_name
+    ";
+    $params = [$svc, $schemaName, $tableName];
+    $result = pg_query_params($conexao, $sql, $params);
+
+    if (!$result) {
+        $response['success'] = false;
+        $response['data'] = pg_last_error($conexao);
+    } else {
+        $rows = pg_fetch_all($result);
+        if (!$rows) {
+            $rows = [];
+        }
+        $response['success'] = true;
+        $response['data'] = $rows;
+    }
+    echo json_encode($response);
+    exit;
+}
 else {
     $response['success'] = false;
     $response['data'] = 'Ação inválida.';
     echo json_encode($response);
     exit;
 }
+?>
