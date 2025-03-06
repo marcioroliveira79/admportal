@@ -119,7 +119,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               flex: 1;
               padding: 20px;
               overflow: auto;
-              /* Adicione um espaço extra no final, p.ex. 50px */
+              /* Espaço extra no final */
               padding-bottom: 50px;
             }
             #mainContent h4 {
@@ -134,7 +134,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               box-shadow: 0 4px 6px rgba(0,0,0,0.1);
               padding: 20px;
               min-height: 200px;
-              /* Espaço extra ao final */
               padding-bottom: 50px;
             }
             /* Details tables */
@@ -248,8 +247,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
             <!-- Main Content -->
             <div id="mainContent">
-              <!-- Cabeçalho que mostra o caminho completo da tabela -->
-              <h4 id="tablePath">Detalhes</h4>
+              <!-- Cabeçalho que mostra o caminho completo do item selecionado -->
+              <h4 id="tablePath">Selecione um item para visualizar o caminho</h4>
               <div id="detailsContainer">
                 <p>Selecione algo no painel esquerdo para ver detalhes aqui...</p>
               </div>
@@ -290,11 +289,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
           // Remove caracteres problemáticos para o Mermaid
           function sanitizeMermaid(str) {
-            // Remove quebras de linha
             let s = String(str || '').replace(/[\n\r]+/g, ' ');
-            // Substitui aspas duplas por \"
             s = s.replace(/"/g, '\\"');
-            // Remove/transforma tudo que não for [A-Za-z0-9_.,:\- ] em "_"
             s = s.replace(/[^A-Za-z0-9_\.,:\- ]/g, '_');
             return s;
           }
@@ -303,6 +299,17 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             if(!dt) return '';
             var d = new Date(dt);
             return d.toLocaleString();
+          }
+
+          // Função para formatar bytes (B, KB, MB, GB...)
+          function formatBytes(bytes) {
+            if (isNaN(bytes) || bytes <= 0) return "0 Bytes";
+            const k = 1024;
+            const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            const index = (i < sizes.length) ? i : sizes.length - 1;
+            const value = bytes / Math.pow(k, index);
+            return value.toFixed(2) + " " + sizes[index];
           }
 
           // ================
@@ -462,55 +469,74 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           // ================
           function buildTree(data) {
             var $ul = $('<ul class="list-unstyled"></ul>');
-            data.forEach(function(ambObj){
-              var envDate = new Date(ambObj.date_collect);
+
+            data.forEach(function(ambObj) {
+              let rawDate = ambObj.date_collect || "";
+              rawDate = rawDate.replace(" ", "T");
+              if (rawDate.indexOf('.') !== -1) {
+                rawDate = rawDate.split('.')[0];
+              }
+              var envDate = new Date(rawDate);
               var now = new Date();
               var diffHours = (now - envDate) / (1000 * 60 * 60);
-
+              if (diffHours < 0) {
+                diffHours = 0;
+              }
               var envIconClass = "fa-server";
-              if(diffHours < 24) {
+              if (diffHours < 24) {
                 envIconClass += " text-primary";
-              } else if(diffHours < 48) {
+              } else if (diffHours < 48) {
                 envIconClass += " text-warning";
               } else {
                 envIconClass += " text-danger";
               }
-
-              var ambLabel = ambObj.ambiente + " (" + (ambObj.children ? ambObj.children.length : 0) + ")";
-              if(diffHours >= 48) {
-                ambLabel += " - " + new Date(ambObj.date_collect).toLocaleDateString();
+              var countChildren = ambObj.children ? ambObj.children.length : 0;
+              var ambLabel = ambObj.ambiente + " (" + countChildren + ")";
+              if (diffHours >= 48) {
+                var collectDate = envDate.toLocaleDateString();
+                ambLabel += " - " + collectDate;
               }
               var $liAmb = createTreeNode(envIconClass, ambLabel);
-              $liAmb.children('.tree-node').on('click', function(e){
+              $liAmb.children('.tree-node').on('click', function(e) {
                 e.stopPropagation();
                 $(this).parent().toggleClass('expanded');
               });
 
-              if(ambObj.children && ambObj.children.length > 0){
+              if (ambObj.children && ambObj.children.length > 0) {
                 var $childUL = $('<ul class="tree-children list-unstyled"></ul>');
-                ambObj.children.forEach(function(serviceObj){
+
+                ambObj.children.forEach(function(serviceObj) {
                   var serviceLabel = serviceObj.service_name + " (" + (serviceObj.children ? serviceObj.children.length : 0) + ")";
                   var $liSrv = createTreeNode('fa-database text-success', serviceLabel);
-                  $liSrv.children('.tree-node').on('click', function(e){
+                  $liSrv.children('.tree-node').on('click', function(e) {
                     e.stopPropagation();
                     $(this).parent().toggleClass('expanded');
                   });
 
-                  if(serviceObj.children && serviceObj.children.length > 0){
+                  if (serviceObj.children && serviceObj.children.length > 0) {
                     var $childUL2 = $('<ul class="tree-children list-unstyled"></ul>');
-                    serviceObj.children.forEach(function(schemaObj){
+
+                    serviceObj.children.forEach(function(schemaObj) {
                       var $liSch = createTreeNode('fa-sitemap text-warning', schemaObj.schema_name);
-                      $liSch.children('.tree-node').on('click', function(e){
+                      $liSch.children('.tree-node').on('click', function(e) {
                         e.stopPropagation();
                         $(this).parent().toggleClass('expanded');
                       });
+                      // Adiciona o ícone de relacionamento do schema
+                      var $schemaRelIcon = $('<i class="fa fa-project-diagram schema-rel-icon" style="margin-left:5px; cursor:pointer;" title="Ver Relacionamentos do Schema"></i>');
+                      $liSch.find('.tree-node').append($schemaRelIcon);
+                      $schemaRelIcon.on('click', function(e) {
+                        e.stopPropagation();
+                        showSchemaRelationships(ambObj.ambiente, serviceObj.service_name, schemaObj.schema_name);
+                      });
+                      
+                      if (schemaObj.children && schemaObj.children.length > 0) {
+                        var $schemaChildUL = $('<ul class="tree-children list-unstyled"></ul>');
 
-                      if(schemaObj.children && schemaObj.children.length > 0){
-                        // Agrupar por tipo
                         var groups = {};
                         schemaObj.children.forEach(function(tblObj) {
                           var type = tblObj.object_type ? tblObj.object_type.toUpperCase() : 'TABELA';
-                          if(!groups[type]) {
+                          if (!groups[type]) {
                             groups[type] = [];
                           }
                           groups[type].push(tblObj);
@@ -527,22 +553,22 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                           'PROCEDURE': 8,
                           'TRIGGER': 9
                         };
-                        var groupKeys = Object.keys(groups).sort(function(a, b){
+                        var groupKeys = Object.keys(groups).sort(function(a, b) {
                           var weightA = order[a] || 999;
                           var weightB = order[b] || 999;
                           return weightA - weightB;
                         });
 
-                        var $schemaChildUL = $('<ul class="tree-children list-unstyled"></ul>');
                         groupKeys.forEach(function(type) {
                           var items = groups[type];
-                          // Ordena alfabeticamente
-                          items.sort(function(a,b) {
+                          items.sort(function(a, b) {
                             return a.table_name.localeCompare(b.table_name);
                           });
+
                           var labelGrupo = type + " (" + items.length + ")";
                           var iconGrupo = "";
-                          switch(type){
+
+                          switch (type) {
                             case "TABELA":
                               iconGrupo = "fa-table text-info";
                               break;
@@ -573,33 +599,33 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                             default:
                               iconGrupo = "fa-table text-info";
                           }
+
                           var $liGrupo = createTreeNode(iconGrupo, labelGrupo);
-                          $liGrupo.children('.tree-node').on('click', function(e){
+                          $liGrupo.children('.tree-node').on('click', function(e) {
                             e.stopPropagation();
                             $(this).parent().toggleClass('expanded');
                           });
 
                           var $groupChildUL = $('<ul class="tree-children list-unstyled"></ul>');
-                          items.forEach(function(tblObj){
+
+                          items.forEach(function(tblObj) {
                             var tableLabel = "";
                             var newTypes = ['PACKAGE','PACKAGE BODY','FUNCTION','PROCEDURE','TRIGGER'];
-                            if(newTypes.indexOf(tblObj.object_type.toUpperCase()) >= 0) {
+                            if (newTypes.indexOf(tblObj.object_type.toUpperCase()) >= 0) {
                               tableLabel = tblObj.table_name;
                             } else {
                               tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
-                              if(tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA'){
+                              if (tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA') {
                                 tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
                               }
                             }
 
-                            // >>> AQUI verificamos se object_status = 'INVALID'
                             if (tblObj.object_status && tblObj.object_status.toUpperCase() === 'INVALID') {
-                              // Riscar em vermelho
                               tableLabel = '<span style="text-decoration: line-through; color: red;">' + tableLabel + '</span>';
                             }
 
                             var $liTbl = createTreeNode(iconGrupo, tableLabel);
-                            $liTbl.children('.tree-node').on('click', function(e){
+                            $liTbl.children('.tree-node').on('click', function(e) {
                               e.stopPropagation();
                               showTableDetails(
                                 ambObj.ambiente,
@@ -609,13 +635,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 tblObj.object_type
                               );
                             });
-                            // PACKAGE com children (PACKAGE BODY)
-                            if(tblObj.children && tblObj.children.length > 0) {
+
+                            if (tblObj.children && tblObj.children.length > 0) {
                               var $childList = $('<ul class="tree-children list-unstyled"></ul>');
-                              tblObj.children.forEach(function(childObj){
+                              tblObj.children.forEach(function(childObj) {
                                 var childLabel = childObj.table_name;
                                 var $childLi = createTreeNode("fa-boxes text-dark", childLabel);
-                                $childLi.children('.tree-node').on('click', function(e){
+                                $childLi.children('.tree-node').on('click', function(e) {
                                   e.stopPropagation();
                                   showTableDetails(
                                     ambObj.ambiente,
@@ -629,24 +655,31 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                               });
                               $liTbl.append($childList);
                             }
+
                             $groupChildUL.append($liTbl);
                           });
 
                           $liGrupo.append($groupChildUL);
                           $schemaChildUL.append($liGrupo);
                         });
+
                         $liSch.append($schemaChildUL);
                       }
+
                       $childUL2.append($liSch);
                     });
                     $liSrv.append($childUL2);
                   }
+
                   $childUL.append($liSrv);
                 });
+
                 $liAmb.append($childUL);
               }
+
               $ul.append($liAmb);
             });
+
             $('#treeContainer').empty().append($ul);
           }
 
@@ -672,7 +705,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $('#tablePath').text(path);
             $('#detailsContainer').html('<div class="loading">Carregando...</div>');
             
-            // Se for objeto de código (Package, Procedure, etc.)
             if (objectType && ['PACKAGE', 'PACKAGE BODY', 'FUNCTION', 'PROCEDURE', 'TRIGGER'].includes(objectType.toUpperCase())) {
               $.ajax({
                 url: 'catalogo_sql_dev_style_ajax.php',
@@ -713,7 +745,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               });
             }
             else {
-              // TABELA, VIEW etc.
               $.ajax({
                 url: 'catalogo_sql_dev_style_ajax.php',
                 method: 'GET',
@@ -734,13 +765,15 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     html += '<tr><th>Schema</th><td>' + (tbl.schema_name || '') + '</td></tr>';
                     
                     var rawType = tbl.object_type || '';
-                    if(rawType.toUpperCase() === 'VIEW MATERIALIZADA') {
+                    var rawTypeUpper = rawType.toUpperCase();
+
+                    if(rawTypeUpper === 'VIEW MATERIALIZADA') {
                         rawType = 'View Materializada';
-                    } else if(rawType.toUpperCase() === 'VIEW') {
+                    } else if(rawTypeUpper === 'VIEW') {
                         rawType = 'View';
-                    } else if(rawType.toUpperCase() === 'TABELA EXTERNA') {
+                    } else if(rawTypeUpper === 'TABELA EXTERNA') {
                         rawType = 'Tabela Externa';
-                    } else if(rawType.toUpperCase() === 'TABELA') {
+                    } else if(rawTypeUpper === 'TABELA') {
                         rawType = 'Tabela';
                     }
                     var objLabel = rawType ? rawType : 'Tabela';
@@ -752,7 +785,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                     html += '<tr><th>Comentário</th><td>' + tableComment + '</td></tr>';
 
-                    if(tbl.object_type === 'TABELA EXTERNA') {
+                    if(rawTypeUpper === 'TABELA EXTERNA') {
                       html += '<tr><th>Diretório Externo</th><td>' + (tbl.external_directory || '') + '</td></tr>';
                       html += '<tr><th>Caminho do Diretório Externo</th><td>' + (tbl.external_directory_path || '') + '</td></tr>';
                       html += '<tr><th>Local Externo</th><td>' + (tbl.external_location || '') + '</td></tr>';
@@ -766,6 +799,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                       recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR');
                     }
                     html += '<tr><th>Qtd. de Registros</th><td>' + recordCountFormatted + '</td></tr>';
+
+                    if (rawTypeUpper === 'TABELA' || rawTypeUpper === 'VIEW MATERIALIZADA') {
+                      var sizeInBytes = parseInt(tbl.table_size_bytes || '0', 10);
+                      var sizeFormatted = formatBytes(sizeInBytes);
+                      html += '<tr><th>Tamanho</th><td>' + sizeFormatted + '</td></tr>';
+                    }
+
                     html += '</table>';
 
                     if(tbl.columns && tbl.columns.length > 0) {
@@ -799,7 +839,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                       html += '<div id="keyLegend"><p><small><i class="fa fa-key" style="color:gold;"></i> = PK &nbsp;&nbsp; <i class="fa fa-key" style="color:green;"></i> = FK</small></p></div>';
                     }
 
-                    // Botão de Crescimento
                     html += '<hr>';
                     html += '<button class="btn btn-sm btn-outline-primary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#chartContainer" aria-expanded="false" aria-controls="chartContainer">';
                     html += '  <i class="fa fa-chart-line"></i> Crescimento';
@@ -808,8 +847,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     html += '  <canvas id="growthChart" style="max-width: 100%;"></canvas>';
                     html += '</div>';
 
-                    // Se for VIEW, botão "Código"
-                    if (rawType.toUpperCase() === 'VIEW' || rawType.toUpperCase() === 'VIEW MATERIALIZADA') {
+                    if (rawTypeUpper === 'VIEW' || rawTypeUpper === 'VIEW MATERIALIZADA') {
                       html += '<button class="btn btn-sm btn-outline-secondary mb-2 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#viewCodeContainer" aria-expanded="false" aria-controls="viewCodeContainer">';
                       html += '  <i class="fa fa-code"></i> Código';
                       html += '</button>';
@@ -820,8 +858,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                       html += '</div>';
                     }
 
-                    // Se for TABELA, botão "Relacionamento"
-                    if (rawType.toUpperCase() === 'TABELA') {
+                    if (rawTypeUpper === 'TABELA') {
                       html += '<button class="btn btn-sm btn-outline-secondary mb-2 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#relationshipContainer" aria-expanded="false" aria-controls="relationshipContainer">';
                       html += '  <i class="fa fa-project-diagram"></i> Relacionamento';
                       html += '</button>';
@@ -843,46 +880,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               });
             }
           }
-
-          // Eventos de collapse
-          $(document).on('shown.bs.collapse', '#chartContainer', function () {
-            let $this = $(this);
-            let ambiente    = $this.data('amb');
-            let serviceName = $this.data('srv');
-            let schemaName  = $this.data('sch');
-            let tableName   = $this.data('tbl');
-            loadTableHistory(ambiente, serviceName, schemaName, tableName);
-
-            // Rolar o #mainContent até o chartContainer
-            let $mainContent = $('#mainContent');
-            $mainContent.animate({
-              scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top
-            }, 500);
-          });
-
-          $(document).on('shown.bs.collapse', '#viewCodeContainer', function () {
-            let $this = $(this);
-            let ambiente    = $this.data('amb');
-            let serviceName = $this.data('srv');
-            let schemaName  = $this.data('sch');
-            let tableName   = $this.data('tbl');
-            loadViewCode(ambiente, serviceName, schemaName, tableName);
-          });
-
-          $(document).on('shown.bs.collapse', '#relationshipContainer', function () {
-            let $this = $(this);
-            let ambiente    = $this.data('amb');
-            let serviceName = $this.data('srv');
-            let schemaName  = $this.data('sch');
-            let tableName   = $this.data('tbl');
-            loadTableRelationships(ambiente, serviceName, schemaName, tableName);
-
-            // Rolar o #mainContent até o relationshipContainer
-            let $mainContent = $('#mainContent');
-            $mainContent.animate({
-              scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top
-            }, 500);
-          });
 
           // ================
           // Funções AJAX para Crescimento, Código, Relacionamento
@@ -1005,7 +1002,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
           }
 
-          // >>> Função atualizada para relacionamentos, incluindo os atributos
+          // Função para carregar relacionamentos de tabela
           function loadTableRelationships(ambiente, serviceName, schemaName, tableName) {
             $('#relationshipDiagram').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
             $.ajax({
@@ -1023,50 +1020,37 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 if (resp.success && resp.data && resp.data.length > 0) {
                   let relationships = resp.data;
                   let diagramText = "graph LR\n";
-
-                  // Conjunto para evitar linhas duplicadas
                   let edges = new Set();
 
                   relationships.forEach(function(rel) {
                     let origin     = sanitizeMermaid(rel.table_origin);
                     let reference  = sanitizeMermaid(rel.table_reference);
                     let constraint = sanitizeMermaid(rel.constraint_name);
-                    let direction  = rel.direction; // "<" ou ">"
-
-                    // Captura os atributos
-                    let attrOrigin    = sanitizeMermaid(rel.attribute_origin || '');
-                    let attrReference = sanitizeMermaid(rel.attribute_reference || '');
-
-                    // Cria o rótulo combinando constraint e os atributos (se disponíveis)
+                    let direction  = rel.direction;
+                    let attrOrigin = sanitizeMermaid(rel.attribute_origin || '');
                     let label = constraint;
-                    if(attrOrigin && attrReference) {
-                      //label += " (" + attrOrigin + " -> " + attrReference + ")";
+                    if(attrOrigin) {
                       label += " (" + attrOrigin + ")";
                     }
-
-                    // Cria uma chave única para essa aresta
                     let edgeKey = `${origin}||${label}||${reference}||${direction}`;
                     if(!edges.has(edgeKey)) {
                       edges.add(edgeKey);
-
                       if (direction === ">") {
-                        // origin é pai
                         diagramText += `${origin}--"${label}"-->${reference}\n`;
                       } else if (direction === "<") {
-                        // origin é filho
                         diagramText += `${reference}--"${label}"-->${origin}\n`;
                       } else {
-                        // sem direção definida
                         diagramText += `${origin}--"${label}"-->${reference}\n`;
                       }
                     }
                   });
-
-                  // Em vez de usar .text(), criamos uma <div class="mermaid"> com o diagrama
+                  // Verifica se o texto gerado ultrapassa um limite (ex: 15000 caracteres)
+                  if(diagramText.length > 15000){
+                    $('#relationshipDiagram').html('<p>Diagrama muito grande para ser exibido.</p>');
+                    return;
+                  }
                   let mermaidHtml = '<div class="mermaid">' + diagramText + '</div>';
                   $('#relationshipDiagram').html(mermaidHtml);
-
-                  // Renderiza o diagrama apenas no novo elemento
                   mermaid.init(undefined, $('#relationshipDiagram').find('.mermaid'));
 
                 } else {
@@ -1079,9 +1063,112 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
           }
 
+          // Função para carregar relacionamentos do schema
+          function loadSchemaRelationships(ambiente, serviceName, schemaName) {
+            $('#detailsContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando relacionamentos do schema...</div>');
+            $.ajax({
+              url: 'catalogo_sql_dev_style_ajax.php',
+              method: 'GET',
+              data: {
+                action: 'getSchemaRelationships',
+                ambiente: ambiente,
+                service_name: serviceName,
+                schema_name: schemaName
+              },
+              dataType: 'json',
+              success: function(resp) {
+                if(resp.success && resp.data && resp.data.length > 0) {
+                  let relationships = resp.data;
+                  let diagramText = "graph LR\n";
+                  let edges = new Set();
+                  relationships.forEach(function(rel) {
+                    let origin = sanitizeMermaid(rel.table_origin);
+                    let reference = sanitizeMermaid(rel.table_reference);
+                    let constraint = sanitizeMermaid(rel.constraint_name);
+                    let direction = rel.direction;
+                    let attrOrigin = sanitizeMermaid(rel.attribute_origin || '');
+                    let label = constraint;
+                    if(attrOrigin) {
+                      label += " (" + attrOrigin + ")";
+                    }
+                    let edgeKey = `${origin}||${label}||${reference}||${direction}`;
+                    if(!edges.has(edgeKey)) {
+                      edges.add(edgeKey);
+                      if(direction === ">") {
+                        diagramText += `${origin}--"${label}"-->${reference}\n`;
+                      } else if(direction === "<") {
+                        diagramText += `${reference}--"${label}"-->${origin}\n`;
+                      } else {
+                        diagramText += `${origin}--"${label}"-->${reference}\n`;
+                      }
+                    }
+                  });
+                  // Verifica se o texto gerado ultrapassa um limite
+                  if(diagramText.length > 15000){
+                    $('#detailsContainer').html('<p>Diagrama muito grande para ser exibido.</p>');
+                    return;
+                  }
+                  let mermaidHtml = '<div class="mermaid">' + diagramText + '</div>';
+                  $('#detailsContainer').html(mermaidHtml);
+                  mermaid.init(undefined, $('#detailsContainer').find('.mermaid'));
+                } else {
+                  $('#detailsContainer').html('<p>Não foram encontrados relacionamentos para este schema.</p>');
+                }
+              },
+              error: function() {
+                $('#detailsContainer').html('<p>Erro ao carregar relacionamentos do schema.</p>');
+              }
+            });
+          }
+
+          // Função que chama a função de carregar relacionamentos do schema
+          // Agora atualiza o cabeçalho para mostrar o caminho do schema selecionado
+          function showSchemaRelationships(ambiente, serviceName, schemaName) {
+            var path = ambiente + '/' + serviceName + '/' + schemaName;
+            $('#tablePath').text(path);
+            loadSchemaRelationships(ambiente, serviceName, schemaName);
+          }
+
+          // Eventos de collapse
+          $(document).on('shown.bs.collapse', '#chartContainer', function () {
+            let $this = $(this);
+            let ambiente    = $this.data('amb');
+            let serviceName = $this.data('srv');
+            let schemaName  = $this.data('sch');
+            let tableName   = $this.data('tbl');
+            loadTableHistory(ambiente, serviceName, schemaName, tableName);
+
+            let $mainContent = $('#mainContent');
+            $mainContent.animate({
+              scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top
+            }, 500);
+          });
+
+          $(document).on('shown.bs.collapse', '#viewCodeContainer', function () {
+            let $this = $(this);
+            let ambiente    = $this.data('amb');
+            let serviceName = $this.data('srv');
+            let schemaName  = $this.data('sch');
+            let tableName   = $this.data('tbl');
+            loadViewCode(ambiente, serviceName, schemaName, tableName);
+          });
+
+          $(document).on('shown.bs.collapse', '#relationshipContainer', function () {
+            let $this = $(this);
+            let ambiente    = $this.data('amb');
+            let serviceName = $this.data('srv');
+            let schemaName  = $this.data('sch');
+            let tableName   = $this.data('tbl');
+            loadTableRelationships(ambiente, serviceName, schemaName, tableName);
+
+            let $mainContent = $('#mainContent');
+            $mainContent.animate({
+              scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top
+            }, 500);
+          });
+
           </script>
         </body>
-       
         </html>
         <?php
     } elseif ($acesso != "TELA AUTORIZADA") {
@@ -1090,3 +1177,4 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 } else {
     header("Location: login.php");
 }
+?>

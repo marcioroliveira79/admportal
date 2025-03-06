@@ -10,7 +10,7 @@ $response = ['success' => false, 'data' => null];
 if ($action === 'getHierarchy') {
 
     // Query unificada para obter objetos (tabelas, views, packages, etc.),
-    // agora incluindo MAX(object_status) para sabermos se está INVALID ou não.
+    // incluindo MAX(object_status) para sabermos se está INVALID ou não.
     $query = "
     SELECT * FROM (
        SELECT
@@ -186,6 +186,7 @@ elseif ($action === 'getTableDetails') {
     $svc = preg_replace('/\(.*?\)/', '', $serviceName);
     $svc = trim($svc);
 
+    // Ajuste: inclui a coluna table_size_bytes
     $query = "
         SELECT ambiente,
                service_name,
@@ -198,7 +199,8 @@ elseif ($action === 'getTableDetails') {
                object_type,
                external_directory,
                external_directory_path,
-               external_location
+               external_location,
+               table_size_bytes
         FROM administracao.catalog_table_content
         WHERE ambiente = $1
           AND service_name = $2
@@ -461,7 +463,6 @@ elseif ($action === 'getTableHistory') {
     echo json_encode($response);
     exit;
 }
-// >>> Rota para relacionamentos com atributos
 elseif ($action === 'getTableRelationships') {
     $ambiente    = $_GET['ambiente']     ?? '';
     $serviceName = $_GET['service_name'] ?? '';
@@ -488,6 +489,43 @@ elseif ($action === 'getTableRelationships') {
     $params = [$svc, $schemaName, $tableName];
     $result = pg_query_params($conexao, $sql, $params);
 
+    if (!$result) {
+        $response['success'] = false;
+        $response['data'] = pg_last_error($conexao);
+    } else {
+        $rows = pg_fetch_all($result);
+        if (!$rows) {
+            $rows = [];
+        }
+        $response['success'] = true;
+        $response['data'] = $rows;
+    }
+    echo json_encode($response);
+    exit;
+}
+elseif ($action === 'getSchemaRelationships') {
+    $ambiente    = $_GET['ambiente'] ?? '';
+    $serviceName = $_GET['service_name'] ?? '';
+    $schemaName  = $_GET['schema_name'] ?? '';
+
+    $svc = preg_replace('/\(.*?\)/', '', $serviceName);
+    $svc = trim($svc);
+
+    $sql = "
+        SELECT DISTINCT
+            table_origin,
+            attribute_origin,
+            table_reference,
+            attribute_reference,
+            constraint_name,
+            direction
+        FROM administracao.catalog_table_reference
+        WHERE service_name = $1
+          AND schema_origin = $2
+        ORDER BY constraint_name
+    ";
+    $params = [$svc, $schemaName];
+    $result = pg_query_params($conexao, $sql, $params);
     if (!$result) {
         $response['success'] = false;
         $response['data'] = pg_last_error($conexao);
