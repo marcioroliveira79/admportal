@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Exemplo: Mermaid + D3 Zoom + Destaque de Setas</title>
+  <!-- Biblioteca Mermaid -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <!-- Biblioteca D3 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .diagram-container {
+      border: 1px solid #ccc;
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      overflow: hidden; /* Evita scroll de barra, se desejar */
+    }
+    /* Cursor de “mão” para indicar que pode arrastar */
+    .diagram-container svg {
+      cursor: grab;
+    }
+  </style>
+  <script>
+    // Inicializamos o Mermaid sem startOnLoad para ter controle manual
+    mermaid.initialize({ startOnLoad: false });
+  </script>
+</head>
+<body>
+
+  <h1>Exemplo de Zoom e Pan com Mermaid e D3, e destaque de setas</h1>
+
+  <!-- Container para o diagrama -->
+  <div class="diagram-container">
+    <!-- Mermaid converte este <pre> em um <svg> -->
+    <pre class="mermaid">
+flowchart LR
+    A((Inicio)) --> B[Verificar conta bancária]
+    B -->|Saldo positivo| C{Comprar Presentes?}
+    C -->|Sim| D[Shopping]
+    C -->|Não| E[Empréstimo]
+    D --> F((Feliz Natal!))
+    E --> F((Feliz Natal!))
+    </pre>
+  </div>
+
+  <script>
+    // Renderiza o diagrama Mermaid
+    mermaid.run({
+      querySelector: '.mermaid',
+      postRenderCallback: function(id) {
+        // Seleciona todos os SVGs gerados pela classe .mermaid
+        const svgs = d3.selectAll('.mermaid svg');
+
+        svgs.each(function() {
+          // 'this' é o elemento SVG atual
+          let svg = d3.select(this);
+
+          // Move todo o conteúdo do SVG para dentro de um <g> interno
+          svg.html("<g>" + svg.html() + "</g>");
+
+          // Seleciona o <g> que acabamos de criar
+          let inner = svg.select("g");
+
+          // Define o comportamento de zoom/pan
+          let zoom = d3.zoom()
+            .on("zoom", function(event) {
+              // Aplica a transformação (pan e zoom) no <g> interno
+              inner.attr("transform", event.transform);
+            });
+
+          // Aplica o zoom ao <svg>
+          svg.call(zoom);
+
+          // ============================================
+          // LÓGICA PARA DESTACAR A SETA (EDGE) AO CLICAR
+          // ============================================
+          // Selecionamos todos os <path> do diagrama
+          // e adicionamos um listener de click.
+          svg.selectAll("path")
+            .on("click", function(event) {
+              // Remove destaque de todos
+              svg.selectAll("path")
+                .attr("stroke", null)
+                .attr("stroke-width", null);
+
+              // Destaque a seta clicada
+              d3.select(this)
+                .attr("stroke", "red")
+                .attr("stroke-width", 3);
+
+              // Impede que o clique propague para outros elementos
+              event.stopPropagation();
+            });
+        });
+      }
+    });
+  </script>
+</body>
+</html>

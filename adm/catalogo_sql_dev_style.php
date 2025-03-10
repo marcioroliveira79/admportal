@@ -27,6 +27,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
           <!-- Mermaid (para diagramas) -->
           <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+          <!-- D3.js (para zoom/pan no diagrama do schema) -->
+          <script src="https://d3js.org/d3.v7.min.js"></script>
           <script>
             // Inicializa o Mermaid sem processar automaticamente
             mermaid.initialize({ startOnLoad: false });
@@ -185,6 +187,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             #growthChart {
               display: block; /* garante que o canvas seja um bloco */
               margin-bottom: 30px; /* Espaço após o gráfico */
+            }
+            /* Opcional: caso queira estilizar o SVG gerado pelo Mermaid */
+            .mermaid svg {
+              cursor: grab; /* para indicar que pode arrastar o diagrama */
             }
           </style>
         </head>
@@ -491,7 +497,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 envIconClass += " text-danger";
               }
               var countChildren = ambObj.children ? ambObj.children.length : 0;
-              var ambLabel = ambObj.ambiente + " (" + countChildren + ")";
+              // --- Alteração: incluir valor do campo technology no rótulo do ambiente ---
+              var tech = ambObj.technology ? ambObj.technology.toUpperCase() + " - " : "";
+              var ambLabel = tech + ambObj.ambiente + " (" + countChildren + ")";
               if (diffHours >= 48) {
                 var collectDate = envDate.toLocaleDateString();
                 ambLabel += " - " + collectDate;
@@ -513,6 +521,20 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     $(this).parent().toggleClass('expanded');
                   });
 
+                  // Ícone de informações do Banco
+                  var $srvInfoIcon = $('<i class="fa fa-info-circle ms-2" style="cursor:pointer;" title="Ver Informações do Banco"></i>');
+                  $liSrv.find('.tree-node').append($srvInfoIcon);
+
+                  // Extraindo dataBase, hostName e serviceRaw
+                  var dataBase = ambObj.ambiente;
+                  var hostName = serviceObj.service_name.match(/\((.*?)\)/)?.[1] || '???';
+                  var serviceRaw = serviceObj.service_name.replace(/\(.*?\)/, '').trim();
+
+                  $srvInfoIcon.on('click', function(e) {
+                    e.stopPropagation();
+                    showServiceInfo(dataBase, hostName, serviceRaw);
+                  });
+
                   if (serviceObj.children && serviceObj.children.length > 0) {
                     var $childUL2 = $('<ul class="tree-children list-unstyled"></ul>');
 
@@ -522,7 +544,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         e.stopPropagation();
                         $(this).parent().toggleClass('expanded');
                       });
-                      // Adiciona o ícone de relacionamento do schema
+                      // Ícone de relacionamentos do schema
                       var $schemaRelIcon = $('<i class="fa fa-project-diagram schema-rel-icon" style="margin-left:5px; cursor:pointer;" title="Ver Relacionamentos do Schema"></i>');
                       $liSch.find('.tree-node').append($schemaRelIcon);
                       $schemaRelIcon.on('click', function(e) {
@@ -1045,7 +1067,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                   });
                   // Verifica se o texto gerado ultrapassa um limite (ex: 15000 caracteres)
-                  if(diagramText.length > 15000){
+                  if(diagramText.length > 100000){
                     $('#relationshipDiagram').html('<p>Diagrama muito grande para ser exibido.</p>');
                     return;
                   }
@@ -1063,7 +1085,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
           }
 
-          // Função para carregar relacionamentos do schema
+          // ================
+          // Função para carregar relacionamentos do schema (COM ZOOM VIA D3)
+          // ================
           function loadSchemaRelationships(ambiente, serviceName, schemaName) {
             $('#detailsContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando relacionamentos do schema...</div>');
             $.ajax({
@@ -1104,13 +1128,35 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     }
                   });
                   // Verifica se o texto gerado ultrapassa um limite
-                  if(diagramText.length > 15000){
+                  if(diagramText.length > 100000){
                     $('#detailsContainer').html('<p>Diagrama muito grande para ser exibido.</p>');
                     return;
                   }
+                  // Renderiza o diagrama
                   let mermaidHtml = '<div class="mermaid">' + diagramText + '</div>';
                   $('#detailsContainer').html(mermaidHtml);
+                  // Inicializa Mermaid
                   mermaid.init(undefined, $('#detailsContainer').find('.mermaid'));
+
+                  // Aplicamos um pequeno delay para garantir que o SVG foi criado
+                  setTimeout(function() {
+                    // Seleciona todos os SVGs gerados dentro de #detailsContainer
+                    const svgs = d3.selectAll('#detailsContainer .mermaid svg');
+                    svgs.each(function() {
+                      let svg = d3.select(this);
+                      // Move todo o conteúdo do SVG para dentro de um <g>
+                      svg.html("<g>" + svg.html() + "</g>");
+                      let inner = svg.select("g");
+                      // Define o comportamento de zoom/pan
+                      let zoom = d3.zoom()
+                        .on("zoom", function(event) {
+                          inner.attr("transform", event.transform);
+                        });
+                      // Aplica o zoom ao <svg>
+                      svg.call(zoom);
+                    });
+                  }, 300);
+
                 } else {
                   $('#detailsContainer').html('<p>Não foram encontrados relacionamentos para este schema.</p>');
                 }
@@ -1121,12 +1167,99 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
           }
 
-          // Função que chama a função de carregar relacionamentos do schema
-          // Agora atualiza o cabeçalho para mostrar o caminho do schema selecionado
+          // ================
+          // Chama a função de relacionamentos do schema + atualiza cabeçalho
+          // ================
           function showSchemaRelationships(ambiente, serviceName, schemaName) {
             var path = ambiente + '/' + serviceName + '/' + schemaName;
             $('#tablePath').text(path);
             loadSchemaRelationships(ambiente, serviceName, schemaName);
+          }
+
+          // ================
+          // NOVA FUNÇÃO: exibir informações do banco (catalog_database_infos)
+          // ================
+          function showServiceInfo(dataBase, hostName, serviceName) {
+            console.log("Enviando para getServiceInfo:", {
+              data_base: dataBase,
+              host_name: hostName,
+              service_name: serviceName
+            });
+            // Mostra um "Carregando" no painel direito
+            $('#tablePath').text(dataBase + '/' + serviceName);
+            $('#detailsContainer').html('<div class="loading">Carregando informações do banco...</div>');
+
+            $.ajax({
+              url: 'catalogo_sql_dev_style_ajax.php',
+              method: 'GET',
+              data: {
+                action: 'getServiceInfo',
+                data_base: dataBase,
+                host_name: hostName,
+                service_name: serviceName
+              },
+              dataType: 'json',
+              success: function(resp) {
+                if(!resp.success) {
+                  $('#detailsContainer').html('<p>Erro: ' + resp.data + '</p>');
+                  return;
+                }
+                var rows = resp.data;
+                if(rows.length === 0) {
+                  $('#detailsContainer').html('<p>Nenhum dado encontrado em <strong>catalog_database_infos</strong>.</p>');
+                  return;
+                }
+
+                var first = rows[0];
+                var techIcon = '';
+                var tecnologia = (first.tecnologia || '').toLowerCase();
+
+                if (tecnologia === 'oracle') {
+                  techIcon = '<img src="imgs/oracle.jpg" style="width:80px;" alt="Oracle">';
+                } else if (tecnologia === 'postgres' || tecnologia === 'postgresql') {
+                  techIcon = '<img src="imgs/postgres.jpg" style="width:80px;" alt="PostgreSQL">';
+                } else {
+                  techIcon = '<i class="fa fa-database fa-2x" style="color:#999;"></i>';
+                }
+
+                var html = '<div style="display:flex; align-items:center; margin-bottom:10px;">';
+                html += techIcon;
+                html += '<h5 style="margin-left:10px;">Informações do Banco</h5>';
+                html += '</div>';
+
+                html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
+                html += '<tr><th>Ambiente</th><td>' + (first.ambiente || '') + '</td></tr>';
+                html += '<tr><th>Data Criação</th><td>' + (first.data_criacao || '') + '</td></tr>';
+                html += '<tr><th>Último Start</th><td>' + (first.ultimo_start || '') + '</td></tr>';
+                html += '<tr><th>Host</th><td>' + (first.nome_host || '') + '</td></tr>';
+                html += '</table>';
+
+                html += '<h6>Histórico de Patches / Ações</h6>';
+                html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
+                html += '<thead><tr>';
+                html += '<th>Data Aplicação</th><th>Ação</th><th>Comentários</th>';
+                html += '</tr></thead>';
+                html += '<tbody>';
+                rows.forEach(function(r) {
+                  html += '<tr>';
+                  html += '<td>' + (r.data_aplicacao_patch || '') + '</td>';
+                  html += '<td>' + (r.acao_patch || '') + '</td>';
+                  html += '<td>' + (r.patch_comentarios || '') + '</td>';
+                  html += '</tr>';
+                });
+                html += '</tbody></table>';
+
+                if (first.componente_instalado) {
+                  html += '<h6>Componentes Instalados</h6>';
+                  html += '<p style="white-space: pre-wrap; font-size: 13px;">' + first.componente_instalado + '</p>';
+                }
+
+                $('#detailsContainer').html(html);
+              },
+              error: function() {
+                $('#detailsContainer').html('<p>Erro ao obter informações do banco.</p>');
+              }
+            });
           }
 
           // Eventos de collapse
