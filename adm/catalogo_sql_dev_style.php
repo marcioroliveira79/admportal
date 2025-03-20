@@ -469,7 +469,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   $liSrv.children('.tree-node').append($schemaHistIcon);
                   $schemaHistIcon.on('click', function(e) {
                     e.stopPropagation();
-                    // Chama a função para histórico de schemas
                     showSchemaHistoryInfo(hostName, serviceRaw, ambObj.ambiente);
                   });
                   if (serviceObj.children && serviceObj.children.length > 0) {
@@ -553,6 +552,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                               if (tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA') {
                                 tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
                               }
+                              // Adiciona o ícone de histórico de atributos
+                              tableLabel += ' <i class="fa fa-history ms-2" style="cursor:pointer;" title="Histórico de Atributos"></i>';
                             }
                             if (tblObj.object_status && tblObj.object_status.toUpperCase() === 'INVALID') {
                               tableLabel = '<span style="text-decoration: line-through; color: red;">' + tableLabel + '</span>';
@@ -568,25 +569,11 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 tblObj.object_type
                               );
                             });
-                            if (tblObj.children && tblObj.children.length > 0) {
-                              var $childList = $('<ul class="tree-children list-unstyled"></ul>');
-                              tblObj.children.forEach(function(childObj) {
-                                var childLabel = childObj.table_name;
-                                var $childLi = createTreeNode("fa-boxes text-dark", childLabel);
-                                $childLi.children('.tree-node').on('click', function(e) {
-                                  e.stopPropagation();
-                                  showTableDetails(
-                                    ambObj.ambiente,
-                                    serviceObj.service_name,
-                                    schemaObj.schema_name,
-                                    childObj.table_name,
-                                    childObj.object_type
-                                  );
-                                });
-                                $childList.append($childLi);
-                              });
-                              $liTbl.append($childList);
-                            }
+                            // Vincula o clique no ícone de histórico de atributos
+                            $liTbl.find('.fa-history').on('click', function(e) {
+                              e.stopPropagation();
+                              showAttributeHistory(ambObj.ambiente, serviceObj.service_name, schemaObj.schema_name, tblObj.table_name);
+                            });
                             $groupChildUL.append($liTbl);
                           });
                           $liGrupo.append($groupChildUL);
@@ -1061,7 +1048,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             loadSchemaHistory(host_name, service_name, ambiente);
           }
           function loadSchemaHistory(host_name, service_name, ambiente) {
-            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name);
+            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name + ' (Histórico do Schema)');
+            
             var html = '<div style="margin-bottom:10px;">';
             html += '<label for="schemaHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
             html += '<select id="schemaHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
@@ -1209,6 +1197,99 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 $('#detailsContainer').html('<p>Erro ao carregar o histórico de tabelas.</p>');
               }
             });
+          }
+          // Função para exibir o histórico de atributos de uma tabela
+          function showAttributeHistory(ambiente, service_name, schema_name, table_name) {
+            var hostName = service_name.match(/\((.*?)\)/)?.[1] || '???';
+            var serviceRaw = service_name.replace(/\(.*?\)/, '').trim();
+            var path = ambiente + '/' + serviceRaw + '/' + schema_name + '/' + table_name + ' (Histórico de Atributos)';
+            $('#tablePath').text(path);
+            loadAttributeHistory(hostName, serviceRaw, ambiente, schema_name, table_name);
+          }
+          // Função para carregar via AJAX o histórico de atributos
+          function loadAttributeHistory(hostName, serviceRaw, ambiente, schema_name, table_name) {
+            var html = '<div style="margin-bottom:10px;">';
+            html += '<label for="attributeHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
+            html += '<select id="attributeHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
+            html += '<option value="">Selecione uma data...</option>';
+            html += '</select>';
+            html += '<br><div id="attributeHistoryTableContainer"><p>Selecione uma data para visualizar os detalhes.</p></div>';
+            $('#detailsContainer').html(html);
+
+            $.ajax({
+              url: 'catalogo_sql_dev_style_ajax.php',
+              method: 'GET',
+              data: { 
+                action: 'getAttributeHist', 
+                host_name: hostName, 
+                service_name: serviceRaw, 
+                ambiente: ambiente, 
+                schema_name: schema_name, 
+                table_name: table_name 
+              },
+              dataType: 'json',
+              success: function(resp) {
+                if(resp.success && resp.data) {
+                  var history = resp.data;
+                  if(history.length === 0) {
+                    $('#attributeHistoryTableContainer').html('<p>Nenhum histórico de atributos encontrado.</p>');
+                    return;
+                  }
+                  history.sort(function(a, b) {
+                    return new Date(a.date_collect) - new Date(b.date_collect);
+                  });
+                  var distinctDates = {};
+                  history.forEach(function(item) {
+                    var d = new Date(item.date_collect);
+                    var dateStr = d.toLocaleDateString();
+                    distinctDates[dateStr] = true;
+                  });
+                  var dates = Object.keys(distinctDates);
+                  dates.sort(function(a, b) {
+                    return new Date(a) - new Date(b);
+                  });
+                  dates.forEach(function(dateStr) {
+                    $('#attributeHistoryDateFilter').append('<option value="'+ dateStr +'">'+ dateStr +'</option>');
+                  });
+                  $('#attributeHistoryDateFilter').on('change', function(){
+                    var selectedDate = $(this).val();
+                    if(selectedDate === ""){
+                      $('#attributeHistoryTableContainer').html('<p>Selecione uma data para visualizar os detalhes.</p>');
+                      return;
+                    }
+                    var filteredHistory = history.filter(function(item){
+                      var d = new Date(item.date_collect);
+                      return d.toLocaleDateString() === selectedDate;
+                    });
+                    var newTableHtml = buildAttributeHistoryTable(filteredHistory);
+                    $('#attributeHistoryTableContainer').html(newTableHtml);
+                  });
+                } else {
+                  $('#detailsContainer').html('<p>Erro ao carregar o histórico de atributos: ' + resp.data + '</p>');
+                }
+              },
+              error: function() {
+                $('#detailsContainer').html('<p>Erro ao carregar o histórico de atributos.</p>');
+              }
+            });
+          }
+          // Função para montar a tabela do histórico de atributos
+          function buildAttributeHistoryTable(history) {
+            var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
+            tableHtml += '<thead><tr>';
+            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Atributo (antigo → novo)</th><th>Data Coleta</th>';
+            tableHtml += '</tr></thead>';
+            tableHtml += '<tbody>';
+            history.forEach(function(item) {
+              tableHtml += '<tr>';
+              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
+              tableHtml += '<td>' + item.change_type + '</td>';
+              tableHtml += '<td>' + item.object_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
+              tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
+              tableHtml += '</tr>';
+            });
+            tableHtml += '</tbody></table>';
+            return tableHtml;
           }
           function buildTableHistoryTable(history) {
             var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';

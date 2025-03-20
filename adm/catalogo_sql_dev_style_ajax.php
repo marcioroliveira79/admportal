@@ -664,6 +664,44 @@ elseif ($action === 'getTableHist') {
     }
     echo json_encode($response);
     exit;
+    
+} elseif ($action === 'getAttributeHist') {
+    $host_name   = $_GET['host_name']   ?? '';
+    $service_name= $_GET['service_name'] ?? '';
+    $ambiente    = $_GET['ambiente']     ?? '';
+    $schema_name = $_GET['schema_name']  ?? '';
+    $table_name  = $_GET['table_name']   ?? '';
+
+    if (!$host_name || !$service_name || !$ambiente || !$schema_name || !$table_name) {
+         $response['success'] = false;
+         $response['data'] = 'Parâmetros inválidos.';
+         echo json_encode($response);
+         exit;
+    }
+    $sql = "
+        SELECT change_type, object_name, new_name, date_collect, date_processing
+        FROM administracao.catalog_attribute_hist
+        WHERE host_name = $1
+          AND service_name = $2
+          AND ambiente = $3
+          AND schema_name = $4
+          AND table_name = $5
+        ORDER BY date_processing DESC
+    ";
+    $params = [$host_name, $service_name, $ambiente, $schema_name, $table_name];
+    $result = pg_query_params($conexao, $sql, $params);
+    if (!$result) {
+         $response['success'] = false;
+         $response['data'] = pg_last_error($conexao);
+         echo json_encode($response);
+         exit;
+    }
+    $rows = pg_fetch_all($result);
+    if (!$rows) { $rows = []; }
+    $response['success'] = true;
+    $response['data'] = $rows;
+    echo json_encode($response);
+    exit;
 }
 
 else {
@@ -672,3 +710,4 @@ else {
     echo json_encode($response);
     exit;
 }
+?>
