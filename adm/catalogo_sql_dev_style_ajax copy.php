@@ -19,7 +19,7 @@ if ($action === 'getHierarchy') {
             ambiente,
             host_name,
             service_name,
-            schema_name,           
+            schema_name,
             table_name,
             object_type,
             table_comments,
@@ -114,7 +114,6 @@ if ($action === 'getHierarchy') {
                     'object_status'       => $r['object_status']
                 ];
             }
-            // Função para agrupar PACKAGE BODY dentro de PACKAGE
             function nestPackageBodies($items) {
                 $processed = [];
                 $skip = [];
@@ -136,7 +135,6 @@ if ($action === 'getHierarchy') {
                 }
                 return $processed;
             }
-            // Monta a hierarquia final
             $hierarchy = [];
             foreach ($byAmbiente as $amb => $dataAmb) {
                 $services = $dataAmb['services'];
@@ -145,7 +143,6 @@ if ($action === 'getHierarchy') {
                     $schemaArr = [];
                     foreach ($schemasVal as $schemaKey => $tblsVal) {
                         $tblsVal = nestPackageBodies($tblsVal);
-                        // Ordena TABELA, VIEW etc.
                         usort($tblsVal, function($a, $b) {
                             $order = [
                                 'TABELA'            => 1,
@@ -233,7 +230,6 @@ elseif ($action === 'getTableDetails') {
         echo json_encode($response);
         exit;
     }
-    // Consulta das colunas
     $queryColumns = "
         SELECT DISTINCT
                column_name,
@@ -590,7 +586,7 @@ elseif ($action === 'getServiceInfo') {
 }
 
 elseif ($action === 'getSchemaHistory') {
-    // Histórico de alterações de schema
+    // Recebe os parâmetros: host_name, service_name e ambiente
     $host       = $_GET['host_name']   ?? '';
     $srv        = $_GET['service_name'] ?? '';
     $ambiente   = $_GET['ambiente']      ?? '';
@@ -630,45 +626,10 @@ elseif ($action === 'getSchemaHistory') {
     exit;
 }
 
-elseif ($action === 'getTableHist') {
-    // Novo: Histórico de alterações de tabela a partir de administracao.catalog_table_hist
-    $host       = $_GET['host_name']   ?? '';
-    $srv        = $_GET['service_name'] ?? '';
-    $ambiente   = $_GET['ambiente']      ?? '';
-    $schema     = $_GET['schema_name']   ?? '';
-    if (!$host || !$srv || !$ambiente || !$schema) {
-        $response['success'] = false;
-        $response['data'] = 'Parâmetros inválidos.';
-        echo json_encode($response);
-        exit;
-    }
-    $sql = "
-     SELECT change_type, object_name, new_name, date_collect, date_processing, data_base, host_name, service_name, schema_name, object_id, unique_hash, ambiente, technology
-     FROM administracao.catalog_table_hist
-     WHERE host_name = $1
-       AND service_name = $2
-       AND ambiente = $3
-       AND schema_name = $4
-     ORDER BY date_processing DESC
-    ";
-    $params = [$host, $srv, $ambiente, $schema];
-    $result = pg_query_params($conexao, $sql, $params);
-    if (!$result) {
-        $response['success'] = false;
-        $response['data'] = pg_last_error($conexao);
-    } else {
-        $rows = pg_fetch_all($result);
-        if (!$rows) { $rows = []; }
-        $response['success'] = true;
-        $response['data'] = $rows;
-    }
-    echo json_encode($response);
-    exit;
-}
-
 else {
     $response['success'] = false;
     $response['data'] = 'Ação inválida.';
     echo json_encode($response);
     exit;
 }
+?>

@@ -421,6 +421,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function buildTree(data) {
             var $ul = $('<ul class="list-unstyled"></ul>');
             data.forEach(function(ambObj) {
+              // Aqui, para o histórico, usamos somente o ambiente
               var dataBaseForHistory = ambObj.ambiente;
               let rawDate = ambObj.date_collect || "";
               rawDate = rawDate.replace(" ", "T");
@@ -464,12 +465,11 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     e.stopPropagation();
                     showServiceInfo(ambObj.ambiente, hostName, serviceRaw);
                   });
-                  // Ícone para histórico de schemas
-                  var $schemaHistIcon = $('<i class="fa fa-history ms-2" style="cursor:pointer;" title="Histórico de Mudanças de Schema"></i>');
+                  var $schemaHistIcon = $('<i class="fa fa-history ms-2" style="cursor:pointer;" title="Histórico de Mudanças"></i>');
                   $liSrv.children('.tree-node').append($schemaHistIcon);
                   $schemaHistIcon.on('click', function(e) {
                     e.stopPropagation();
-                    // Chama a função para histórico de schemas
+                    // Envia somente o ambiente para histórico (data_base e technology foram removidos)
                     showSchemaHistoryInfo(hostName, serviceRaw, ambObj.ambiente);
                   });
                   if (serviceObj.children && serviceObj.children.length > 0) {
@@ -480,19 +480,11 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         e.stopPropagation();
                         $(this).parent().toggleClass('expanded');
                       });
-                      // Ícone para relacionamentos do schema
                       var $schemaRelIcon = $('<i class="fa fa-project-diagram schema-rel-icon" style="margin-left:5px; cursor:pointer;" title="Ver Relacionamentos do Schema"></i>');
                       $liSch.children('.tree-node').append($schemaRelIcon);
                       $schemaRelIcon.on('click', function(e) {
                         e.stopPropagation();
                         showSchemaRelationships(ambObj.ambiente, serviceObj.service_name, schemaObj.schema_name);
-                      });
-                      // Ícone para histórico de alterações de tabela
-                      var $tableHistIcon = $('<i class="fa fa-history ms-2" style="cursor:pointer;" title="Histórico de Alterações de Tabela"></i>');
-                      $liSch.children('.tree-node').append($tableHistIcon);
-                      $tableHistIcon.on('click', function(e) {
-                        e.stopPropagation();
-                        showTableChangeHistory(hostName, serviceRaw, ambObj.ambiente, schemaObj.schema_name);
                       });
                       if (schemaObj.children && schemaObj.children.length > 0) {
                         var $schemaChildUL = $('<ul class="tree-children list-unstyled"></ul>');
@@ -618,7 +610,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $li.append($div);
             return $li;
           }
-          // Mostrar Detalhes de Tabela/Objeto
+          // Mostrar Detalhes
           function showTableDetails(ambiente, serviceName, schemaName, tableName, objectType) {
             var svc = serviceName.replace(/\(.*?\)/, '').trim();
             var path = ambiente + '/' + svc + '/' + schemaName + '/' + tableName;
@@ -775,7 +767,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               });
             }
           }
-          // Carrega histórico de registros (gráfico)
+          // Funções AJAX para Crescimento, Código, Relacionamento
           function loadTableHistory(ambiente, serviceName, schemaName, tableName) {
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
@@ -833,7 +825,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Carrega código da view
           function loadViewCode(ambiente, serviceName, schemaName, viewName) {
             $('#viewCodeBlock').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
             $.ajax({
@@ -873,7 +864,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Carrega relacionamentos de uma tabela
           function loadTableRelationships(ambiente, serviceName, schemaName, tableName) {
             $('#relationshipDiagram').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
             $.ajax({
@@ -924,7 +914,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Carrega relacionamentos de um schema
           function loadSchemaRelationships(ambiente, serviceName, schemaName) {
             $('#detailsContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando relacionamentos do schema...</div>');
             $.ajax({
@@ -984,15 +973,15 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Encapsula loadSchemaRelationships
+          // Função showSchemaRelationships para encapsular loadSchemaRelationships
           function showSchemaRelationships(ambiente, serviceName, schemaName) {
             var path = ambiente + '/' + serviceName + '/' + schemaName;
             $('#tablePath').text(path);
             loadSchemaRelationships(ambiente, serviceName, schemaName);
           }
-
           // Função para exibir informações do banco (sem botão de histórico)
           function showServiceInfo(dataBase, hostName, serviceName) {
+            console.log("Enviando para getServiceInfo:", { data_base: dataBase, host_name: hostName, service_name: serviceName });
             $('#tablePath').text(dataBase + '/' + serviceName);
             $('#detailsContainer').html('<div class="loading">Carregando informações do banco...</div>');
             $.ajax({
@@ -1006,7 +995,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   return;
                 }
                 var rows = resp.data;
-                if(!rows || rows.length === 0) {
+                if(rows.length === 0) {
                   $('#detailsContainer').html('<p>Nenhum dado encontrado em <strong>catalog_database_infos</strong>.</p>');
                   return;
                 }
@@ -1055,21 +1044,17 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-
-          // 1) Funções para histórico de schemas
-          function showSchemaHistoryInfo(host_name, service_name, ambiente) {
-            loadSchemaHistory(host_name, service_name, ambiente);
-          }
+          // Função para carregar histórico de schemas (removidos data_base e technology)
           function loadSchemaHistory(host_name, service_name, ambiente) {
-            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name);
-            var html = '<div style="margin-bottom:10px;">';
-            html += '<label for="schemaHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
-            html += '<select id="schemaHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
-            html += '<option value="">Selecione uma data...</option>';
-            html += '</select>';
-            html += '<br><div id="schemaHistoryTableContainer"><p>Selecione uma data para visualizar os detalhes.</p></div>';
-            $('#detailsContainer').html(html);
-
+            console.log("Parâmetros enviados para getSchemaHistory:", { host_name, service_name, ambiente });
+            var debugHtml = '<div class="debug" style="background-color: #eef; padding: 10px; margin-bottom: 10px;">';
+            debugHtml += '<strong>Parâmetros enviados:</strong><br>';
+            debugHtml += 'host_name: ' + host_name + '<br>';
+            debugHtml += 'service_name: ' + service_name + '<br>';
+            debugHtml += 'ambiente: ' + ambiente + '<br>';
+            debugHtml += '</div>';
+            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name );
+            $('#detailsContainer').html(debugHtml + '<div class="loading">Carregando histórico de schemas...</div>');
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
               method: 'GET',
@@ -1079,39 +1064,25 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 if(resp.success && resp.data) {
                   var history = resp.data;
                   if(history.length === 0) {
-                    $('#schemaHistoryTableContainer').html('<p>Nenhum histórico de schemas encontrado.</p>');
+                    $('#detailsContainer').append('<p>Nenhum histórico de schemas encontrado.</p>');
                     return;
                   }
-                  // Ordena por data de coleta
-                  history.sort(function(a,b){
-                    return new Date(a.date_collect) - new Date(b.date_collect);
-                  });
-                  var distinctDates = {};
+                  var html = '<h5>Histórico de Mudanças de Schemas</h5>';
+                  html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
+                  html += '<thead><tr>';
+                  html += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Schema (antigo → novo)</th><th>Data Coleta</th>';
+                  html += '</tr></thead>';
+                  html += '<tbody>';
                   history.forEach(function(item) {
-                    var d = new Date(item.date_collect);
-                    var dateStr = d.toLocaleDateString();
-                    distinctDates[dateStr] = true;
+                    html += '<tr>';
+                    html += '<td>' + formatDateTime(item.date_processing) + '</td>';
+                    html += '<td>' + item.change_type + '</td>';
+                    html += '<td>' + item.schema_name + ' ' + (item.new_name ? ('→ ' + item.new_name) : '') + '</td>';
+                    html += '<td>' + formatDateTime(item.date_collect) + '</td>';
+                    html += '</tr>';
                   });
-                  var dates = Object.keys(distinctDates);
-                  dates.sort(function(a, b) {
-                    return new Date(a) - new Date(b);
-                  });
-                  dates.forEach(function(dateStr) {
-                    $('#schemaHistoryDateFilter').append('<option value="'+ dateStr +'">'+ dateStr +'</option>');
-                  });
-                  $('#schemaHistoryDateFilter').on('change', function(){
-                    var selectedDate = $(this).val();
-                    if(selectedDate === ""){
-                      $('#schemaHistoryTableContainer').html('<p>Selecione uma data para visualizar os detalhes.</p>');
-                      return;
-                    }
-                    var filteredHistory = history.filter(function(item){
-                      var d = new Date(item.date_collect);
-                      return d.toLocaleDateString() === selectedDate;
-                    });
-                    var newTableHtml = buildSchemaHistoryTable(filteredHistory);
-                    $('#schemaHistoryTableContainer').html(newTableHtml);
-                  });
+                  html += '</tbody></table>';
+                  $('#detailsContainer').html(html);
                 } else {
                   $('#detailsContainer').html('<p>Erro ao carregar o histórico de schemas: ' + resp.data + '</p>');
                 }
@@ -1121,114 +1092,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          function buildSchemaHistoryTable(history) {
-            var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
-            tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Schema (antigo → novo)</th><th>Data Coleta</th>';
-            tableHtml += '</tr></thead>';
-            tableHtml += '<tbody>';
-            history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
-              tableHtml += '<td>' + item.change_type + '</td>';
-              tableHtml += '<td>' + item.schema_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
-              tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
-              tableHtml += '</tr>';
-            });
-            tableHtml += '</tbody></table>';
-            return tableHtml;
+          function showSchemaHistoryInfo(host_name, service_name, ambiente) {
+            loadSchemaHistory(host_name, service_name, ambiente);
           }
-
-          // 2) Funções para histórico de tabelas (no nível do schema)
-          function showTableChangeHistory(host_name, service_name, ambiente, schema_name) {
-            var path = ambiente + '/' + service_name + '/' + schema_name + ' (Histórico de Tabela)';
-            $('#tablePath').text(path);
-            loadTableChangeHistory(host_name, service_name, ambiente, schema_name);
-          }
-          function loadTableChangeHistory(host_name, service_name, ambiente, schema_name) {
-            var html = '<div style="margin-bottom:10px;">';
-            html += '<label for="tableHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
-            html += '<select id="tableHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
-            html += '<option value="">Selecione uma data...</option>';
-            html += '</select>';
-            html += '<br><div id="tableHistoryTableContainer"><p>Selecione uma data para visualizar os detalhes.</p></div>';
-            $('#detailsContainer').html(html);
-            
-            $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
-              method: 'GET',
-              data: { 
-                action: 'getTableHist', 
-                host_name: host_name, 
-                service_name: service_name, 
-                ambiente: ambiente, 
-                schema_name: schema_name 
-              },
-              dataType: 'json',
-              success: function(resp) {
-                if(resp.success && resp.data) {
-                  var history = resp.data;
-                  if(history.length === 0) {
-                    $('#tableHistoryTableContainer').html('<p>Nenhum histórico de tabelas encontrado.</p>');
-                    return;
-                  }
-                  history.sort(function(a,b){
-                    return new Date(a.date_collect) - new Date(b.date_collect);
-                  });
-                  var distinctDates = {};
-                  history.forEach(function(item) {
-                    var d = new Date(item.date_collect);
-                    var dateStr = d.toLocaleDateString();
-                    distinctDates[dateStr] = true;
-                  });
-                  var dates = Object.keys(distinctDates);
-                  dates.sort(function(a, b) {
-                    return new Date(a) - new Date(b);
-                  });
-                  dates.forEach(function(dateStr) {
-                    $('#tableHistoryDateFilter').append('<option value="'+ dateStr +'">'+ dateStr +'</option>');
-                  });
-                  $('#tableHistoryDateFilter').on('change', function(){
-                    var selectedDate = $(this).val();
-                    if(selectedDate === ""){
-                      $('#tableHistoryTableContainer').html('<p>Selecione uma data para visualizar os detalhes.</p>');
-                      return;
-                    }
-                    var filteredHistory = history.filter(function(item){
-                      var d = new Date(item.date_collect);
-                      return d.toLocaleDateString() === selectedDate;
-                    });
-                    var newTableHtml = buildTableHistoryTable(filteredHistory);
-                    $('#tableHistoryTableContainer').html(newTableHtml);
-                  });
-                } else {
-                  $('#detailsContainer').html('<p>Erro ao carregar o histórico de tabelas: ' + resp.data + '</p>');
-                }
-              },
-              error: function() {
-                $('#detailsContainer').html('<p>Erro ao carregar o histórico de tabelas.</p>');
-              }
-            });
-          }
-          function buildTableHistoryTable(history) {
-            var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
-            tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Tabela (antigo → novo)</th><th>Data Coleta</th>';
-            tableHtml += '</tr></thead>';
-            tableHtml += '<tbody>';
-            history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
-              tableHtml += '<td>' + item.change_type + '</td>';
-              tableHtml += '<td>' + item.object_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
-              tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
-              tableHtml += '</tr>';
-            });
-            tableHtml += '</tbody></table>';
-            return tableHtml;
-          }
-
-          // Eventos de exibição dos colapsáveis
           $(document).on('shown.bs.collapse', '#chartContainer', function () {
             let $this = $(this);
             let ambiente    = $this.data('amb');

@@ -773,13 +773,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     // Validar o nome da FOREIGN KEY
                                     if (tableNameChild) {
                                         // Regex para validar o nome no formato correto
-                                        const fkNameRegex = new RegExp(
-                                            `^${tableNameChild.toUpperCase()}_${tableName.toUpperCase()}_\\d{2}_FK$`
+                                        const fkNameRegex = new RegExp(                                            
+                                            `^${tableName.toUpperCase()}_${tableNameChild.toUpperCase()}_\\d{2}_FK$`
                                         );
 
                                         if (!fkNameRegex.test(constraintName)) {
                                             statusMessages.push(
-                                                `⛔ Nome da FOREIGN KEY inválido. Esperado: ${tableNameChild.toUpperCase()}_${tableName.toUpperCase()}_NN_FK (NN é um número com dois dígitos). Encontrado: ${constraintName}`
+                                                `⛔ Nome da FOREIGN KEY inválido. Esperado: ${tableName.toUpperCase()}_${tableNameChild.toUpperCase()}_NN_FK (NN é um número com dois dígitos). Encontrado: ${constraintName}`
                                             );
                                         }
                                     } else {

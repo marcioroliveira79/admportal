@@ -30,6 +30,20 @@
       cursor: grab;
       border: 1px solid #999;
       border-radius: 3px;
+      position: relative; /* Permite posicionar o símbolo de exclusão */
+    }
+    /* Estilo para o símbolo de exclusão */
+    .delete-symbol {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #ffaaaa;
+      border: 1px solid #ff0000;
+      border-radius: 50%;
+      padding: 2px 5px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
     }
     /* Painel para exibir e remover conexões */
     #connections-panel {
@@ -111,6 +125,11 @@
         btn.addEventListener('click', function() {
           // Remove a linha do diagrama
           conn.line.remove();
+          // Remove o símbolo de exclusão do campo alvo, se existir
+          var targetElem = document.getElementById(conn.targetId);
+          if (targetElem && conn.deleteBtn) {
+            targetElem.removeChild(conn.deleteBtn);
+          }
           // Remove a conexão do array
           connections.splice(index, 1);
           // Atualiza a lista
@@ -178,6 +197,15 @@
         var sourceId = e.dataTransfer.getData('text/plain');
         var targetId = e.target.id;
 
+        // Regra: o campo só pode receber uma ligação
+        var targetAlreadyConnected = connections.some(function(conn) {
+          return conn.targetId === targetId;
+        });
+        if (targetAlreadyConnected) {
+          alert("Este campo já possui uma ligação.");
+          return;
+        }
+
         // Só cria a conexão se a origem e o destino forem diferentes
         if (sourceId && sourceId !== targetId) {
           var sourceElem = document.getElementById(sourceId);
@@ -186,12 +214,33 @@
           // Cria a linha com LeaderLine
           var line = new LeaderLine(sourceElem, targetElem);
 
-          // Salva a conexão no array
-          connections.push({
+          // Cria o símbolo de exclusão no campo de destino
+          var delBtn = document.createElement('span');
+          delBtn.className = 'delete-symbol';
+          delBtn.textContent = '✖';
+          delBtn.addEventListener('click', function(e) {
+            // Remove a linha do diagrama
+            conn.line.remove();
+            // Remove o símbolo de exclusão do campo
+            targetElem.removeChild(delBtn);
+            // Remove a conexão do array
+            var index = connections.indexOf(conn);
+            if (index > -1) {
+              connections.splice(index, 1);
+            }
+            // Atualiza o painel de conexões
+            renderConnectionsList();
+          });
+          targetElem.appendChild(delBtn);
+
+          // Salva a conexão no array, armazenando também o símbolo de exclusão
+          var conn = {
             line: line,
             sourceId: sourceId,
-            targetId: targetId
-          });
+            targetId: targetId,
+            deleteBtn: delBtn
+          };
+          connections.push(conn);
 
           // Atualiza o painel de conexões
           renderConnectionsList();

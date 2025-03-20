@@ -21,8 +21,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
           <!-- jQuery -->
           <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-          <!-- Ícones (usando Font Awesome) -->
-          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+          <!-- Fluent UI System Icons (Office UI Fabric Core) -->
+          <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-core/11.0.0/css/fabric.min.css">
           <!-- Chart.js -->
           <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
           <!-- Mermaid (para diagramas) -->
@@ -32,8 +32,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           <script>
             // Inicializa o Mermaid sem processar automaticamente
             mermaid.initialize({
-              maxEdges: 1000,
-              startOnLoad: true
+              maxEdges: 1000, // ajuste esse valor conforme necessário
+              startOnLoad: true,
+              // outras configurações...
             });
           </script>
           
@@ -48,11 +49,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               background-color: #f5f5f5;
               font-family: Arial, sans-serif;
             }
+            /* .container-fluid ajustado para ocupar 100% */
             .container-fluid {
               height: 100%;
-              display: flex;
+              display: flex; /* coloca sidebar, dragBar e mainContent lado a lado */
               flex-direction: row;
             }
+            /* Sidebar inicial: 400px, mas será ajustado ao arrastar */
             #sidebar {
               background-color: #ffffff;
               border-right: 0px solid #ddd;
@@ -68,6 +71,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               font-weight: bold;
               color: #4a4a4a;
             }
+            /* Formulário de busca */
             .search-form {
               margin-top: 10px;
               padding: 10px;
@@ -75,25 +79,29 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               border-radius: 5px;
               background-color: #f9f9f9;
             }
+            /* Loader para ambientes */
             #ambientesLoader {
               font-size: 12px;
               color: #888;
               margin-top: 5px;
               display: block;
             }
+            /* Drag bar */
             #dragBar {
               width: 5px;
               cursor: col-resize;
               background-color: #ccc;
               height: 100%;
             }
+            /* Legenda de Data de Coleta na sidebar */
             #timeLegend {
               margin-top: 20px;
               font-size: 12px;
             }
-            #timeLegend i {
+            #timeLegend .ms-Icon {
               margin-right: 5px;
             }
+            /* Tree nodes */
             .tree-node {
               cursor: pointer;
               margin: 5px 0;
@@ -101,9 +109,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               align-items: center;
               white-space: nowrap;
             }
-            .tree-node i {
+            .tree-node .ms-Icon {
               margin-right: 8px;
             }
+            /* Child nodes */
             .tree-children {
               margin-left: 20px;
               display: none;
@@ -111,10 +120,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             .expanded > .tree-children {
               display: block;
             }
+            /* Main content flex:1 para ocupar o resto */
             #mainContent {
               flex: 1;
               padding: 20px;
               overflow: auto;
+              /* Espaço extra no final */
               padding-bottom: 50px;
             }
             #mainContent h4 {
@@ -122,6 +133,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               margin-bottom: 20px;
               color: #4a4a4a;
             }
+            /* Details container */
             #detailsContainer {
               background-color: #ffffff;
               border-radius: 10px;
@@ -130,6 +142,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               min-height: 200px;
               padding-bottom: 50px;
             }
+            /* Details tables */
             #detailsTable,
             #columnsTable {
               width: 100%;
@@ -150,53 +163,71 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               background-color: #f8f9fa;
               font-weight: bold;
             }
+            /* Reduzir largura das colunas Ambiente, Service e Schema */
             #detailsTable th:nth-child(1),
             #detailsTable th:nth-child(2),
             #detailsTable th:nth-child(3) {
               width: 120px;
               white-space: nowrap;
             }
+            /* Loading */
             .loading {
               text-align: center;
               font-style: italic;
               color: #888;
               padding: 20px;
             }
+            /* Legenda de chaves nos detalhes */
             #keyLegend {
               margin-top: 10px;
               font-size: 12px;
             }
-            #keyLegend i {
+            #keyLegend .ms-Icon {
               margin-right: 5px;
             }
             #relationshipContainer {
-              margin-bottom: 30px;
+              margin-bottom: 30px; /* Espaço após o container de relacionamento */
             }
             #growthChart {
-              display: block;
-              margin-bottom: 30px;
+              display: block; /* garante que o canvas seja um bloco */
+              margin-bottom: 30px; /* Espaço após o gráfico */
             }
+            /* Opcional: caso queira estilizar o SVG gerado pelo Mermaid */
             .mermaid svg {
-              cursor: grab;
+              cursor: grab; /* para indicar que pode arrastar o diagrama */
+            }
+            /* Adicionais para ícones giratórios (spinner) */
+            .spinner {
+              animation: spin 2s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
             }
           </style>
         </head>
         <body>
           <div class="container-fluid">
+            <!-- Sidebar -->
             <div id="sidebar">
+              <!-- Título e botão para expandir/ocultar a busca -->
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="mb-0">Explorar</h5>
+                <h5 class="mb-0"><i class="ms-Icon ms-Icon--Database" aria-hidden="true"></i> Ambientes</h5>
+                <!-- Botão que expande/colapsa o formulário de busca -->
                 <button class="btn btn-sm btn-outline-secondary" type="button"
                         data-bs-toggle="collapse" data-bs-target="#searchContainer"
                         aria-expanded="false" aria-controls="searchContainer">
-                  <i class="fa fa-search"></i>
+                  <i class="ms-Icon ms-Icon--Search" aria-hidden="true"></i>
                 </button>
               </div>
+
+              <!-- Formulário de busca (inicia colapsado) -->
               <div class="collapse" id="searchContainer">
                 <div class="search-form">
                   <div class="mb-2">
                     <label for="ambienteBusca" class="form-label"><strong>Ambiente</strong></label>
                     <select id="ambienteBusca" class="form-select form-select-sm">
+                      <!-- Será preenchido dinamicamente via AJAX -->
                       <option value="">Carregando...</option>
                     </select>
                     <div id="ambientesLoader">Carregando ambientes...</div>
@@ -214,31 +245,45 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     <label for="searchText" class="form-label"><strong>Buscar</strong></label>
                     <input type="text" class="form-control form-control-sm" id="searchText" placeholder="Use % para wildcard...">
                   </div>
+                  <!-- Botão de busca verde -->
                   <button class="btn btn-success btn-sm" id="btnSearch">Buscar</button>
                 </div>
               </div>
+
               <div id="treeContainer"></div>
+              <!-- Legenda de Data de Coleta -->
               <div id="timeLegend">
                 <p><strong>Legenda de Data de Coleta:</strong></p>
-                <p><i class="fa fa-server text-primary"></i> Coletado nas últimas 24 horas</p>
-                <p><i class="fa fa-server text-warning"></i> Coletado entre 24 e 48 horas</p>
-                <p><i class="fa fa-server text-danger"></i> Coletado há mais de 48 horas</p>
+                <p><i class="ms-Icon ms-Icon--Database" aria-hidden="true" style="color:#0078d4;"></i> Coletado nas últimas 24 horas</p>
+                <p><i class="ms-Icon ms-Icon--Database" aria-hidden="true" style="color:#ffb900;"></i> Coletado entre 24 e 48 horas</p>
+                <p><i class="ms-Icon ms-Icon--Database" aria-hidden="true" style="color:#d13438;"></i> Coletado há mais de 48 horas</p>
               </div>
             </div>
+
+            <!-- Divisor para redimensionar -->
             <div id="dragBar"></div>
+
+            <!-- Main Content -->
             <div id="mainContent">
+              <!-- Cabeçalho que mostra o caminho completo do item selecionado -->
               <h4 id="tablePath">Selecione um item para visualizar o caminho</h4>
               <div id="detailsContainer">
                 <p>Selecione algo no painel esquerdo para ver detalhes aqui...</p>
               </div>
             </div>
           </div>
+
+          <!-- Bootstrap JS -->
           <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
           <script>
+          // ================
           // Funções Auxiliares
+          // ================
           function toTitleCase(str) {
             return str.toLowerCase().replace(/\b\w/g, function(letter) { return letter.toUpperCase(); });
           }
+
+          // Formata blocos de código com numeração de linhas
           function formatCodeBlock(code, removeExtraLines = true, leaveOneBlankLine = false) {
             if (removeExtraLines) {
               if (leaveOneBlankLine) {
@@ -259,17 +304,22 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             html += '</div>';
             return html;
           }
+
+          // Remove caracteres problemáticos para o Mermaid
           function sanitizeMermaid(str) {
             let s = String(str || '').replace(/[\n\r]+/g, ' ');
             s = s.replace(/"/g, '\\"');
             s = s.replace(/[^A-Za-z0-9_\.,:\- ]/g, '_');
             return s;
           }
+
           function formatDateTime(dt) {
             if(!dt) return '';
             var d = new Date(dt);
             return d.toLocaleString();
           }
+
+          // Função para formatar bytes (B, KB, MB, GB...)
           function formatBytes(bytes) {
             if (isNaN(bytes) || bytes <= 0) return "0 Bytes";
             const k = 1024;
@@ -279,7 +329,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             const value = bytes / Math.pow(k, index);
             return value.toFixed(2) + " " + sizes[index];
           }
+
+          // ================
           // Redimensionar Sidebar
+          // ================
           let isResizing = false;
           let startX = 0;
           let startWidth = 0;
@@ -301,10 +354,14 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           document.addEventListener('mouseup', function() {
             isResizing = false;
           });
+
+          // ================
           // Ao carregar a página
+          // ================
           $(document).ready(function(){
             loadAmbientes();
             loadHierarchy();
+
             $('#btnSearch').on('click', function(){
               var amb = $('#ambienteBusca').val();
               var tipo = $('#tipoBusca').val();
@@ -347,6 +404,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     });
                     html += '</ul>';
                     $('#detailsContainer').html(html);
+
                     $('.tableLink').on('click', function(e){
                       e.preventDefault();
                       var amb = $(this).data('amb');
@@ -366,7 +424,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               });
             });
           });
+
+          // ================
           // Carregar Ambientes
+          // ================
           function loadAmbientes(){
             $("#ambienteBusca").prop('disabled', true);
             $("#ambientesLoader").show();
@@ -397,9 +458,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
+
+          // ================
           // Carregar Hierarquia
+          // ================
           function loadHierarchy(){
-            $('#treeContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando...</div>');
+            $('#treeContainer').html('<div class="loading"><i class="ms-Icon ms-Icon--Spinner spinner" aria-hidden="true"></i> Carregando...</div>');
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
               method: 'GET',
@@ -417,11 +481,14 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
+
+          // ================
           // Montar a Árvore
+          // ================
           function buildTree(data) {
             var $ul = $('<ul class="list-unstyled"></ul>');
+
             data.forEach(function(ambObj) {
-              var dataBaseForHistory = ambObj.ambiente;
               let rawDate = ambObj.date_collect || "";
               rawDate = rawDate.replace(" ", "T");
               if (rawDate.indexOf('.') !== -1) {
@@ -430,12 +497,19 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               var envDate = new Date(rawDate);
               var now = new Date();
               var diffHours = (now - envDate) / (1000 * 60 * 60);
-              if (diffHours < 0) { diffHours = 0; }
-              var envIconClass = "fa-server";
-              if (diffHours < 24) { envIconClass += " text-primary"; }
-              else if (diffHours < 48) { envIconClass += " text-warning"; }
-              else { envIconClass += " text-danger"; }
+              if (diffHours < 0) {
+                diffHours = 0;
+              }
+              var envIconClass = "ms-Icon ms-Icon--Database";
+              if (diffHours < 24) {
+                envIconClass += ""; // pode ser customizado com cores via CSS
+              } else if (diffHours < 48) {
+                envIconClass += "";
+              } else {
+                envIconClass += "";
+              }
               var countChildren = ambObj.children ? ambObj.children.length : 0;
+              // --- Alteração: incluir valor do campo technology no rótulo do ambiente ---
               var tech = ambObj.technology ? ambObj.technology.toUpperCase() + " - " : "";
               var ambLabel = tech + ambObj.ambiente + " (" + countChildren + ")";
               if (diffHours >= 48) {
@@ -447,61 +521,61 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 e.stopPropagation();
                 $(this).parent().toggleClass('expanded');
               });
+
               if (ambObj.children && ambObj.children.length > 0) {
                 var $childUL = $('<ul class="tree-children list-unstyled"></ul>');
+
                 ambObj.children.forEach(function(serviceObj) {
                   var serviceLabel = serviceObj.service_name + " (" + (serviceObj.children ? serviceObj.children.length : 0) + ")";
-                  var $liSrv = createTreeNode('fa-database text-success', serviceLabel);
+                  var $liSrv = createTreeNode('ms-Icon ms-Icon--Database', serviceLabel);
                   $liSrv.children('.tree-node').on('click', function(e) {
                     e.stopPropagation();
                     $(this).parent().toggleClass('expanded');
                   });
-                  var $srvInfoIcon = $('<i class="fa fa-info-circle ms-2" style="cursor:pointer;" title="Ver Informações do Banco"></i>');
-                  $liSrv.children('.tree-node').append($srvInfoIcon);
+
+                  // Ícone de informações do Banco
+                  var $srvInfoIcon = $('<i class="ms-Icon ms-Icon--Info" style="cursor:pointer; margin-left:5px;" title="Ver Informações do Banco"></i>');
+                  $liSrv.find('.tree-node').append($srvInfoIcon);
+
+                  // Extraindo dataBase, hostName e serviceRaw
+                  var dataBase = ambObj.ambiente;
                   var hostName = serviceObj.service_name.match(/\((.*?)\)/)?.[1] || '???';
                   var serviceRaw = serviceObj.service_name.replace(/\(.*?\)/, '').trim();
+
                   $srvInfoIcon.on('click', function(e) {
                     e.stopPropagation();
-                    showServiceInfo(ambObj.ambiente, hostName, serviceRaw);
+                    showServiceInfo(dataBase, hostName, serviceRaw);
                   });
-                  // Ícone para histórico de schemas
-                  var $schemaHistIcon = $('<i class="fa fa-history ms-2" style="cursor:pointer;" title="Histórico de Mudanças de Schema"></i>');
-                  $liSrv.children('.tree-node').append($schemaHistIcon);
-                  $schemaHistIcon.on('click', function(e) {
-                    e.stopPropagation();
-                    // Chama a função para histórico de schemas
-                    showSchemaHistoryInfo(hostName, serviceRaw, ambObj.ambiente);
-                  });
+
                   if (serviceObj.children && serviceObj.children.length > 0) {
                     var $childUL2 = $('<ul class="tree-children list-unstyled"></ul>');
+
                     serviceObj.children.forEach(function(schemaObj) {
-                      var $liSch = createTreeNode('fa-sitemap text-warning', schemaObj.schema_name);
+                      var $liSch = createTreeNode('ms-Icon ms-Icon--Teamwork', schemaObj.schema_name);
                       $liSch.children('.tree-node').on('click', function(e) {
                         e.stopPropagation();
                         $(this).parent().toggleClass('expanded');
                       });
-                      // Ícone para relacionamentos do schema
-                      var $schemaRelIcon = $('<i class="fa fa-project-diagram schema-rel-icon" style="margin-left:5px; cursor:pointer;" title="Ver Relacionamentos do Schema"></i>');
-                      $liSch.children('.tree-node').append($schemaRelIcon);
+                      // Ícone de relacionamentos do schema
+                      var $schemaRelIcon = $('<i class="ms-Icon ms-Icon--PivotChart" style="margin-left:5px; cursor:pointer;" title="Ver Relacionamentos do Schema"></i>');
+                      $liSch.find('.tree-node').append($schemaRelIcon);
                       $schemaRelIcon.on('click', function(e) {
                         e.stopPropagation();
                         showSchemaRelationships(ambObj.ambiente, serviceObj.service_name, schemaObj.schema_name);
                       });
-                      // Ícone para histórico de alterações de tabela
-                      var $tableHistIcon = $('<i class="fa fa-history ms-2" style="cursor:pointer;" title="Histórico de Alterações de Tabela"></i>');
-                      $liSch.children('.tree-node').append($tableHistIcon);
-                      $tableHistIcon.on('click', function(e) {
-                        e.stopPropagation();
-                        showTableChangeHistory(hostName, serviceRaw, ambObj.ambiente, schemaObj.schema_name);
-                      });
+                      
                       if (schemaObj.children && schemaObj.children.length > 0) {
                         var $schemaChildUL = $('<ul class="tree-children list-unstyled"></ul>');
+
                         var groups = {};
                         schemaObj.children.forEach(function(tblObj) {
                           var type = tblObj.object_type ? tblObj.object_type.toUpperCase() : 'TABELA';
-                          if (!groups[type]) { groups[type] = []; }
+                          if (!groups[type]) {
+                            groups[type] = [];
+                          }
                           groups[type].push(tblObj);
                         });
+
                         var order = {
                           'TABELA': 1,
                           'TABELA EXTERNA': 2,
@@ -518,31 +592,56 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                           var weightB = order[b] || 999;
                           return weightA - weightB;
                         });
+
                         groupKeys.forEach(function(type) {
                           var items = groups[type];
                           items.sort(function(a, b) {
                             return a.table_name.localeCompare(b.table_name);
                           });
+
                           var labelGrupo = type + " (" + items.length + ")";
                           var iconGrupo = "";
+
                           switch (type) {
-                            case "TABELA": iconGrupo = "fa-table text-info"; break;
-                            case "TABELA EXTERNA": iconGrupo = "fa-external-link-alt text-secondary"; break;
-                            case "VIEW": iconGrupo = "fa-eye text-primary"; break;
-                            case "VIEW MATERIALIZADA": iconGrupo = "fa-eye text-warning"; break;
-                            case "PACKAGE": iconGrupo = "fa-box text-dark"; break;
-                            case "PACKAGE BODY": iconGrupo = "fa-boxes text-dark"; break;
-                            case "FUNCTION": iconGrupo = "fa-code text-success"; break;
-                            case "PROCEDURE": iconGrupo = "fa-cogs text-success"; break;
-                            case "TRIGGER": iconGrupo = "fa-bolt text-danger"; break;
-                            default: iconGrupo = "fa-table text-info";
+                            case "TABELA":
+                              iconGrupo = "ms-Icon ms-Icon--Table";
+                              break;
+                            case "TABELA EXTERNA":
+                              iconGrupo = "ms-Icon ms-Icon--OpenInNewWindow";
+                              break;
+                            case "VIEW":
+                              iconGrupo = "ms-Icon ms-Icon--RedEye";
+                              break;
+                            case "VIEW MATERIALIZADA":
+                              iconGrupo = "ms-Icon ms-Icon--RedEye";
+                              break;
+                            case "PACKAGE":
+                              iconGrupo = "ms-Icon ms-Icon--Box";
+                              break;
+                            case "PACKAGE BODY":
+                              iconGrupo = "ms-Icon ms-Icon--FabricFolder";
+                              break;
+                            case "FUNCTION":
+                              iconGrupo = "ms-Icon ms-Icon--Code";
+                              break;
+                            case "PROCEDURE":
+                              iconGrupo = "ms-Icon ms-Icon--Settings";
+                              break;
+                            case "TRIGGER":
+                              iconGrupo = "ms-Icon ms-Icon--LightningBolt";
+                              break;
+                            default:
+                              iconGrupo = "ms-Icon ms-Icon--Table";
                           }
+
                           var $liGrupo = createTreeNode(iconGrupo, labelGrupo);
                           $liGrupo.children('.tree-node').on('click', function(e) {
                             e.stopPropagation();
                             $(this).parent().toggleClass('expanded');
                           });
+
                           var $groupChildUL = $('<ul class="tree-children list-unstyled"></ul>');
+
                           items.forEach(function(tblObj) {
                             var tableLabel = "";
                             var newTypes = ['PACKAGE','PACKAGE BODY','FUNCTION','PROCEDURE','TRIGGER'];
@@ -551,12 +650,14 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                             } else {
                               tableLabel = tblObj.table_name + " (" + (tblObj.columns_count || 0) + ")";
                               if (tblObj.missing_descriptions && tblObj.object_type !== 'TABELA EXTERNA') {
-                                tableLabel += ' <i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                                tableLabel += ' <i class="ms-Icon ms-Icon--Warning" style="color:#d13438;" title="Tabela com falta de descrições"></i>';
                               }
                             }
+
                             if (tblObj.object_status && tblObj.object_status.toUpperCase() === 'INVALID') {
                               tableLabel = '<span style="text-decoration: line-through; color: red;">' + tableLabel + '</span>';
                             }
+
                             var $liTbl = createTreeNode(iconGrupo, tableLabel);
                             $liTbl.children('.tree-node').on('click', function(e) {
                               e.stopPropagation();
@@ -568,11 +669,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 tblObj.object_type
                               );
                             });
+
                             if (tblObj.children && tblObj.children.length > 0) {
                               var $childList = $('<ul class="tree-children list-unstyled"></ul>');
                               tblObj.children.forEach(function(childObj) {
                                 var childLabel = childObj.table_name;
-                                var $childLi = createTreeNode("fa-boxes text-dark", childLabel);
+                                var $childLi = createTreeNode("ms-Icon ms-Icon--FabricFolder", childLabel);
                                 $childLi.children('.tree-node').on('click', function(e) {
                                   e.stopPropagation();
                                   showTableDetails(
@@ -587,43 +689,55 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                               });
                               $liTbl.append($childList);
                             }
+
                             $groupChildUL.append($liTbl);
                           });
+
                           $liGrupo.append($groupChildUL);
                           $schemaChildUL.append($liGrupo);
                         });
+
                         $liSch.append($schemaChildUL);
                       }
+
                       $childUL2.append($liSch);
                     });
                     $liSrv.append($childUL2);
                   }
+
                   $childUL.append($liSrv);
                 });
+
                 $liAmb.append($childUL);
               }
+
               $ul.append($liAmb);
             });
+
             $('#treeContainer').empty().append($ul);
           }
+
           // Cria nó de árvore
           function createTreeNode(iconClass, labelText){
             var $li = $('<li class="mb-1"></li>');
             var $div = $('<div class="tree-node"></div>');
-            if(iconClass.indexOf("fa-table") !== -1 || iconClass.indexOf("fa-external-link-alt") !== -1 || iconClass.indexOf("fa-eye") !== -1) {
-              var plainText = labelText.replace(/<[^>]+>/g, '');
-              $div.attr("title", plainText);
-            }
-            $div.append('<i class="fa ' + iconClass + '"></i> ' + labelText);
+            // Remover tags HTML do label para o title
+            var plainText = labelText.replace(/<[^>]+>/g, '');
+            $div.attr("title", plainText);
+            $div.append('<i class="' + iconClass + '" aria-hidden="true"></i> ' + labelText);
             $li.append($div);
             return $li;
           }
-          // Mostrar Detalhes de Tabela/Objeto
+
+          // ================
+          // Mostrar Detalhes
+          // ================
           function showTableDetails(ambiente, serviceName, schemaName, tableName, objectType) {
             var svc = serviceName.replace(/\(.*?\)/, '').trim();
             var path = ambiente + '/' + svc + '/' + schemaName + '/' + tableName;
             $('#tablePath').text(path);
             $('#detailsContainer').html('<div class="loading">Carregando...</div>');
+            
             if (objectType && ['PACKAGE', 'PACKAGE BODY', 'FUNCTION', 'PROCEDURE', 'TRIGGER'].includes(objectType.toUpperCase())) {
               $.ajax({
                 url: 'catalogo_sql_dev_style_ajax.php',
@@ -646,6 +760,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     html += '<button id="copyCodeButton" class="btn btn-sm btn-outline-secondary" style="margin-bottom:10px;">Copiar Código</button>';
                     html += formattedCode;
                     $('#detailsContainer').html(html);
+
                     $('#copyCodeButton').click(function(){
                       navigator.clipboard.writeText(rawCode).then(function(){
                         alert("Código copiado!");
@@ -681,35 +796,51 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     html += '<tr><th>Ambiente</th><td>' + (tbl.ambiente || '') + '</td></tr>';
                     html += '<tr><th>Service Name</th><td>' + (tbl.service_name || '') + '</td></tr>';
                     html += '<tr><th>Schema</th><td>' + (tbl.schema_name || '') + '</td></tr>';
+                    
                     var rawType = tbl.object_type || '';
                     var rawTypeUpper = rawType.toUpperCase();
-                    if(rawTypeUpper === 'VIEW MATERIALIZADA') { rawType = 'View Materializada'; }
-                    else if(rawTypeUpper === 'VIEW') { rawType = 'View'; }
-                    else if(rawTypeUpper === 'TABELA EXTERNA') { rawType = 'Tabela Externa'; }
-                    else if(rawTypeUpper === 'TABELA') { rawType = 'Tabela'; }
+
+                    if(rawTypeUpper === 'VIEW MATERIALIZADA') {
+                        rawType = 'View Materializada';
+                    } else if(rawTypeUpper === 'VIEW') {
+                        rawType = 'View';
+                    } else if(rawTypeUpper === 'TABELA EXTERNA') {
+                        rawType = 'Tabela Externa';
+                    } else if(rawTypeUpper === 'TABELA') {
+                        rawType = 'Tabela';
+                    }
                     var objLabel = rawType ? rawType : 'Tabela';
                     html += '<tr><th>' + objLabel + '</th><td>' + (tbl.table_name || '') + '</td></tr>';
+
                     var tableComment = tbl.table_comments || '';
                     if(tbl.object_type !== 'TABELA EXTERNA' && !tbl.table_comments) {
-                      tableComment = '<i class="fa fa-exclamation-triangle text-danger" title="Tabela com falta de descrições"></i>';
+                      tableComment = '<i class="ms-Icon ms-Icon--Warning" style="color:#d13438;" title="Tabela com falta de descrições"></i>';
                     }
                     html += '<tr><th>Comentário</th><td>' + tableComment + '</td></tr>';
+
                     if(rawTypeUpper === 'TABELA EXTERNA') {
                       html += '<tr><th>Diretório Externo</th><td>' + (tbl.external_directory || '') + '</td></tr>';
                       html += '<tr><th>Caminho do Diretório Externo</th><td>' + (tbl.external_directory_path || '') + '</td></tr>';
                       html += '<tr><th>Local Externo</th><td>' + (tbl.external_location || '') + '</td></tr>';
                     }
+
                     html += '<tr><th>Data de Criação</th><td>' + formatDateTime(tbl.table_creation_date) + '</td></tr>';
                     html += '<tr><th>Últ. DDL aplicado</th><td>' + formatDateTime(tbl.table_last_ddl_time) + '</td></tr>';
+
                     var recordCountFormatted = '0';
-                    if(tbl.record_count) { recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR'); }
+                    if(tbl.record_count) {
+                      recordCountFormatted = parseInt(tbl.record_count, 10).toLocaleString('pt-BR');
+                    }
                     html += '<tr><th>Qtd. de Registros</th><td>' + recordCountFormatted + '</td></tr>';
+
                     if (rawTypeUpper === 'TABELA' || rawTypeUpper === 'VIEW MATERIALIZADA') {
                       var sizeInBytes = parseInt(tbl.table_size_bytes || '0', 10);
                       var sizeFormatted = formatBytes(sizeInBytes);
                       html += '<tr><th>Tamanho</th><td>' + sizeFormatted + '</td></tr>';
                     }
+
                     html += '</table>';
+
                     if(tbl.columns && tbl.columns.length > 0) {
                       html += '<h5></h5>';
                       html += '<table id="columnsTable">';
@@ -717,12 +848,15 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                       tbl.columns.forEach(function(col){
                         var chave = '';
                         if(col.is_pk === 'Y' && col.is_fk === 'Y') {
-                          chave = '<i class="fa fa-key" style="color:gold;"></i> <i class="fa fa-key" style="color:green;"></i>';
-                        } else if(col.is_pk === 'Y') { chave = '<i class="fa fa-key" style="color:gold;"></i>'; }
-                        else if(col.is_fk === 'Y') { chave = '<i class="fa fa-key" style="color:green;"></i>'; }
+                          chave = '<i class="ms-Icon ms-Icon--PageAdd" style="color:#ffb900;"></i> <i class="ms-Icon ms-Icon--OpenInNewWindow" style="color:#0078d4;"></i>';
+                        } else if(col.is_pk === 'Y') {
+                          chave = '<i class="ms-Icon ms-Icon--PageAdd" style="color:#ffb900;"></i>';
+                        } else if(col.is_fk === 'Y') {
+                          chave = '<i class="ms-Icon ms-Icon--OpenInNewWindow" style="color:#0078d4;"></i>';
+                        }
                         var colComment = col.column_comments;
                         if(tbl.object_type !== 'TABELA EXTERNA' && !col.column_comments) {
-                          colComment = '<i class="fa fa-exclamation-triangle text-danger" title="Falta descrição para este atributo"></i>';
+                          colComment = '<i class="ms-Icon ms-Icon--Warning" style="color:#d13438;" title="Falta descrição para este atributo"></i>';
                         }
                         html += '<tr>';
                         html += '<td>' + (col.column_name || '') + '</td>';
@@ -735,35 +869,39 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                         html += '</tr>';
                       });
                       html += '</table>';
-                      html += '<div id="keyLegend"><p><small><i class="fa fa-key" style="color:gold;"></i> = PK &nbsp;&nbsp; <i class="fa fa-key" style="color:green;"></i> = FK</small></p></div>';
+                      html += '<div id="keyLegend"><p><small><i class="ms-Icon ms-Icon--PageAdd" style="color:#ffb900;"></i> = PK &nbsp;&nbsp; <i class="ms-Icon ms-Icon--OpenInNewWindow" style="color:#0078d4;"></i> = FK</small></p></div>';
                     }
+
                     html += '<hr>';
                     html += '<button class="btn btn-sm btn-outline-primary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#chartContainer" aria-expanded="false" aria-controls="chartContainer">';
-                    html += '  <i class="fa fa-chart-line"></i> Crescimento';
+                    html += '  <i class="ms-Icon ms-Icon--Chart" aria-hidden="true"></i> Crescimento';
                     html += '</button>';
                     html += '<div class="collapse" id="chartContainer" data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
                     html += '  <canvas id="growthChart" style="max-width: 100%;"></canvas>';
                     html += '</div>';
+
                     if (rawTypeUpper === 'VIEW' || rawTypeUpper === 'VIEW MATERIALIZADA') {
                       html += '<button class="btn btn-sm btn-outline-secondary mb-2 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#viewCodeContainer" aria-expanded="false" aria-controls="viewCodeContainer">';
-                      html += '  <i class="fa fa-code"></i> Código';
+                      html += '  <i class="ms-Icon ms-Icon--Code" aria-hidden="true"></i> Código';
                       html += '</button>';
                       html += '<div class="collapse" id="viewCodeContainer" data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
                       html += '  <div id="viewCodeBlock" class="mermaid" style="min-height: 150px; padding:10px; background-color:#f9f9f9; border:1px solid #ddd; border-radius:5px;">';
-                      html += '    <i class="fa fa-spinner fa-spin"></i> Carregando...';
+                      html += '    <i class="ms-Icon ms-Icon--Spinner spinner" aria-hidden="true"></i> Carregando...';
                       html += '  </div>';
                       html += '</div>';
                     }
+
                     if (rawTypeUpper === 'TABELA') {
                       html += '<button class="btn btn-sm btn-outline-secondary mb-2 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#relationshipContainer" aria-expanded="false" aria-controls="relationshipContainer">';
-                      html += '  <i class="fa fa-project-diagram"></i> Relacionamento';
+                      html += '  <i class="ms-Icon ms-Icon--PivotChart" aria-hidden="true"></i> Relacionamento';
                       html += '</button>';
                       html += '<div class="collapse" id="relationshipContainer" data-amb="' + ambiente + '" data-srv="' + serviceName + '" data-sch="' + schemaName + '" data-tbl="' + tableName + '">';
                       html += '  <div id="relationshipDiagram" class="mermaid" style="min-height: 150px; padding:10px; background-color:#f9f9f9; border:1px solid #ddd; border-radius:5px;">';
-                      html += '    <i class="fa fa-spinner fa-spin"></i> Carregando...';
+                      html += '    <i class="ms-Icon ms-Icon--Spinner spinner" aria-hidden="true"></i> Carregando...';
                       html += '  </div>';
                       html += '</div>';
                     }
+
                     $('#detailsContainer').html(html);
                   } else {
                     $('#detailsContainer').html('<p>Nenhum detalhe encontrado.</p>');
@@ -775,7 +913,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               });
             }
           }
-          // Carrega histórico de registros (gráfico)
+
+          // ================
+          // Funções AJAX para Crescimento, Código, Relacionamento
+          // ================
           function loadTableHistory(ambiente, serviceName, schemaName, tableName) {
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
@@ -793,17 +934,24 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   var data = resp.data;
                   var labels = [];
                   var values = [];
+
                   data.forEach(function(item) {
                     var dt = new Date(item.date_collect);
                     labels.push(dt.toLocaleDateString());
                     values.push(parseInt(item.record_count, 10));
                   });
+
                   var canvas = document.getElementById('growthChart');
-                  if(!canvas) { console.error("Canvas #growthChart não encontrado!"); return; }
+                  if(!canvas) {
+                    console.error("Canvas #growthChart não encontrado!");
+                    return;
+                  }
                   var ctx = canvas.getContext('2d');
+
                   if (window.growthChart && typeof window.growthChart.destroy === 'function') {
                     window.growthChart.destroy();
                   }
+
                   window.growthChart = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -819,8 +967,19 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     },
                     options: {
                       scales: {
-                        x: { title: { display: true, text: 'Data de Coleta' } },
-                        y: { title: { display: true, text: 'Qtd. de Registros' }, beginAtZero: true }
+                        x: {
+                          title: {
+                            display: true,
+                            text: 'Data de Coleta'
+                          }
+                        },
+                        y: {
+                          title: {
+                            display: true,
+                            text: 'Qtd. de Registros'
+                          },
+                          beginAtZero: true
+                        }
                       }
                     }
                   });
@@ -833,9 +992,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Carrega código da view
+
           function loadViewCode(ambiente, serviceName, schemaName, viewName) {
-            $('#viewCodeBlock').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
+            $('#viewCodeBlock').html('<i class="ms-Icon ms-Icon--Spinner spinner" aria-hidden="true"></i> Carregando...');
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
               method: 'GET',
@@ -856,7 +1015,9 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   var html = '<h5>' + (obj.object_type || 'VIEW') + ' - ' + obj.object_name + '</h5>';
                   html += '<button id="copyViewCodeButton" class="btn btn-sm btn-outline-secondary mb-2">Copiar Código</button>';
                   html += formattedCode;
+
                   $('#viewCodeBlock').html(html);
+
                   $('#copyViewCodeButton').click(function(){
                     navigator.clipboard.writeText(rawCode).then(function(){
                       alert("Código copiado!");
@@ -873,9 +1034,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Carrega relacionamentos de uma tabela
+
+          // Função para carregar relacionamentos de tabela
           function loadTableRelationships(ambiente, serviceName, schemaName, tableName) {
-            $('#relationshipDiagram').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
+            $('#relationshipDiagram').html('<i class="ms-Icon ms-Icon--Spinner spinner" aria-hidden="true"></i> Carregando...');
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
               method: 'GET',
@@ -892,22 +1054,30 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   let relationships = resp.data;
                   let diagramText = "graph LR\n";
                   let edges = new Set();
+
                   relationships.forEach(function(rel) {
-                    let origin = sanitizeMermaid(rel.table_origin);
-                    let reference = sanitizeMermaid(rel.table_reference);
+                    let origin     = sanitizeMermaid(rel.table_origin);
+                    let reference  = sanitizeMermaid(rel.table_reference);
                     let constraint = sanitizeMermaid(rel.constraint_name);
-                    let direction = rel.direction;
+                    let direction  = rel.direction;
                     let attrOrigin = sanitizeMermaid(rel.attribute_origin || '');
                     let label = constraint;
-                    if(attrOrigin) { label += " (" + attrOrigin + ")"; }
+                    if(attrOrigin) {
+                      label += " (" + attrOrigin + ")";
+                    }
                     let edgeKey = `${origin}||${label}||${reference}||${direction}`;
                     if(!edges.has(edgeKey)) {
                       edges.add(edgeKey);
-                      if (direction === ">") { diagramText += `${origin}--"${label}"-->${reference}\n`; }
-                      else if (direction === "<") { diagramText += `${reference}--"${label}"-->${origin}\n`; }
-                      else { diagramText += `${origin}--"${label}"-->${reference}\n`; }
+                      if (direction === ">") {
+                        diagramText += `${origin}--"${label}"-->${reference}\n`;
+                      } else if (direction === "<") {
+                        diagramText += `${reference}--"${label}"-->${origin}\n`;
+                      } else {
+                        diagramText += `${origin}--"${label}"-->${reference}\n`;
+                      }
                     }
                   });
+                  // Verifica se o texto gerado ultrapassa um limite (ex: 15000 caracteres)
                   if(diagramText.length > 100000){
                     $('#relationshipDiagram').html('<p>Diagrama muito grande para ser exibido.</p>');
                     return;
@@ -915,6 +1085,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   let mermaidHtml = '<div class="mermaid">' + diagramText + '</div>';
                   $('#relationshipDiagram').html(mermaidHtml);
                   mermaid.init(undefined, $('#relationshipDiagram').find('.mermaid'));
+
                 } else {
                   $('#relationshipDiagram').html('<p>Não foram encontrados relacionamentos para esta tabela.</p>');
                 }
@@ -924,9 +1095,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Carrega relacionamentos de um schema
+
+          // ================
+          // Função para carregar relacionamentos do schema (COM ZOOM VIA D3)
+          // ================
           function loadSchemaRelationships(ambiente, serviceName, schemaName) {
-            $('#detailsContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando relacionamentos do schema...</div>');
+            $('#detailsContainer').html('<div class="loading"><i class="ms-Icon ms-Icon--Spinner spinner" aria-hidden="true"></i> Carregando relacionamentos do schema...</div>');
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
               method: 'GET',
@@ -949,32 +1123,51 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     let direction = rel.direction;
                     let attrOrigin = sanitizeMermaid(rel.attribute_origin || '');
                     let label = constraint;
-                    if(attrOrigin) { label += " (" + attrOrigin + ")"; }
+                    if(attrOrigin) {
+                      label += " (" + attrOrigin + ")";
+                    }
                     let edgeKey = `${origin}||${label}||${reference}||${direction}`;
                     if(!edges.has(edgeKey)) {
                       edges.add(edgeKey);
-                      if(direction === ">") { diagramText += `${origin}--"${label}"-->${reference}\n`; }
-                      else if(direction === "<") { diagramText += `${reference}--"${label}"-->${origin}\n`; }
-                      else { diagramText += `${origin}--"${label}"-->${reference}\n`; }
+                      if(direction === ">") {
+                        diagramText += `${origin}--"${label}"-->${reference}\n`;
+                      } else if(direction === "<") {
+                        diagramText += `${reference}--"${label}"-->${origin}\n`;
+                      } else {
+                        diagramText += `${origin}--"${label}"-->${reference}\n`;
+                      }
                     }
                   });
+                  // Verifica se o texto gerado ultrapassa um limite
                   if(diagramText.length > 100000){
                     $('#detailsContainer').html('<p>Diagrama muito grande para ser exibido.</p>');
                     return;
                   }
+                  // Renderiza o diagrama
                   let mermaidHtml = '<div class="mermaid">' + diagramText + '</div>';
                   $('#detailsContainer').html(mermaidHtml);
+                  // Inicializa Mermaid
                   mermaid.init(undefined, $('#detailsContainer').find('.mermaid'));
+
+                  // Aplicamos um pequeno delay para garantir que o SVG foi criado
                   setTimeout(function() {
+                    // Seleciona todos os SVGs gerados dentro de #detailsContainer
                     const svgs = d3.selectAll('#detailsContainer .mermaid svg');
                     svgs.each(function() {
                       let svg = d3.select(this);
+                      // Move todo o conteúdo do SVG para dentro de um <g>
                       svg.html("<g>" + svg.html() + "</g>");
                       let inner = svg.select("g");
-                      let zoom = d3.zoom().on("zoom", function(event) { inner.attr("transform", event.transform); });
+                      // Define o comportamento de zoom/pan
+                      let zoom = d3.zoom()
+                        .on("zoom", function(event) {
+                          inner.attr("transform", event.transform);
+                        });
+                      // Aplica o zoom ao <svg>
                       svg.call(zoom);
                     });
                   }, 300);
+
                 } else {
                   $('#detailsContainer').html('<p>Não foram encontrados relacionamentos para este schema.</p>');
                 }
@@ -984,21 +1177,38 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
             });
           }
-          // Encapsula loadSchemaRelationships
+
+          // ================
+          // Chama a função de relacionamentos do schema + atualiza cabeçalho
+          // ================
           function showSchemaRelationships(ambiente, serviceName, schemaName) {
             var path = ambiente + '/' + serviceName + '/' + schemaName;
             $('#tablePath').text(path);
             loadSchemaRelationships(ambiente, serviceName, schemaName);
           }
 
-          // Função para exibir informações do banco (sem botão de histórico)
+          // ================
+          // NOVA FUNÇÃO: exibir informações do banco (catalog_database_infos)
+          // ================
           function showServiceInfo(dataBase, hostName, serviceName) {
+            console.log("Enviando para getServiceInfo:", {
+              data_base: dataBase,
+              host_name: hostName,
+              service_name: serviceName
+            });
+            // Mostra um "Carregando" no painel direito
             $('#tablePath').text(dataBase + '/' + serviceName);
             $('#detailsContainer').html('<div class="loading">Carregando informações do banco...</div>');
+
             $.ajax({
               url: 'catalogo_sql_dev_style_ajax.php',
               method: 'GET',
-              data: { action: 'getServiceInfo', data_base: dataBase, host_name: hostName, service_name: serviceName },
+              data: {
+                action: 'getServiceInfo',
+                data_base: dataBase,
+                host_name: hostName,
+                service_name: serviceName
+              },
               dataType: 'json',
               success: function(resp) {
                 if(!resp.success) {
@@ -1006,30 +1216,35 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   return;
                 }
                 var rows = resp.data;
-                if(!rows || rows.length === 0) {
+                if(rows.length === 0) {
                   $('#detailsContainer').html('<p>Nenhum dado encontrado em <strong>catalog_database_infos</strong>.</p>');
                   return;
                 }
+
                 var first = rows[0];
                 var techIcon = '';
                 var tecnologia = (first.tecnologia || '').toLowerCase();
+
                 if (tecnologia === 'oracle') {
                   techIcon = '<img src="imgs/oracle.jpg" style="width:80px;" alt="Oracle">';
                 } else if (tecnologia === 'postgres' || tecnologia === 'postgresql') {
                   techIcon = '<img src="imgs/postgres.jpg" style="width:80px;" alt="PostgreSQL">';
                 } else {
-                  techIcon = '<i class="fa fa-database fa-2x" style="color:#999;"></i>';
+                  techIcon = '<i class="ms-Icon ms-Icon--Database" aria-hidden="true" style="font-size:2rem; color:#999;"></i>';
                 }
+
                 var html = '<div style="display:flex; align-items:center; margin-bottom:10px;">';
                 html += techIcon;
                 html += '<h5 style="margin-left:10px;">Informações do Banco</h5>';
                 html += '</div>';
+
                 html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
                 html += '<tr><th>Ambiente</th><td>' + (first.ambiente || '') + '</td></tr>';
                 html += '<tr><th>Data Criação</th><td>' + (first.data_criacao || '') + '</td></tr>';
                 html += '<tr><th>Último Start</th><td>' + (first.ultimo_start || '') + '</td></tr>';
                 html += '<tr><th>Host</th><td>' + (first.nome_host || '') + '</td></tr>';
                 html += '</table>';
+
                 html += '<h6>Histórico de Patches / Ações</h6>';
                 html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
                 html += '<thead><tr>';
@@ -1044,10 +1259,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                   html += '</tr>';
                 });
                 html += '</tbody></table>';
+
                 if (first.componente_instalado) {
                   html += '<h6>Componentes Instalados</h6>';
                   html += '<p style="white-space: pre-wrap; font-size: 13px;">' + first.componente_instalado + '</p>';
                 }
+
                 $('#detailsContainer').html(html);
               },
               error: function() {
@@ -1056,179 +1273,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             });
           }
 
-          // 1) Funções para histórico de schemas
-          function showSchemaHistoryInfo(host_name, service_name, ambiente) {
-            loadSchemaHistory(host_name, service_name, ambiente);
-          }
-          function loadSchemaHistory(host_name, service_name, ambiente) {
-            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name);
-            var html = '<div style="margin-bottom:10px;">';
-            html += '<label for="schemaHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
-            html += '<select id="schemaHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
-            html += '<option value="">Selecione uma data...</option>';
-            html += '</select>';
-            html += '<br><div id="schemaHistoryTableContainer"><p>Selecione uma data para visualizar os detalhes.</p></div>';
-            $('#detailsContainer').html(html);
-
-            $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
-              method: 'GET',
-              data: { action: 'getSchemaHistory', host_name: host_name, service_name: service_name, ambiente: ambiente },
-              dataType: 'json',
-              success: function(resp) {
-                if(resp.success && resp.data) {
-                  var history = resp.data;
-                  if(history.length === 0) {
-                    $('#schemaHistoryTableContainer').html('<p>Nenhum histórico de schemas encontrado.</p>');
-                    return;
-                  }
-                  // Ordena por data de coleta
-                  history.sort(function(a,b){
-                    return new Date(a.date_collect) - new Date(b.date_collect);
-                  });
-                  var distinctDates = {};
-                  history.forEach(function(item) {
-                    var d = new Date(item.date_collect);
-                    var dateStr = d.toLocaleDateString();
-                    distinctDates[dateStr] = true;
-                  });
-                  var dates = Object.keys(distinctDates);
-                  dates.sort(function(a, b) {
-                    return new Date(a) - new Date(b);
-                  });
-                  dates.forEach(function(dateStr) {
-                    $('#schemaHistoryDateFilter').append('<option value="'+ dateStr +'">'+ dateStr +'</option>');
-                  });
-                  $('#schemaHistoryDateFilter').on('change', function(){
-                    var selectedDate = $(this).val();
-                    if(selectedDate === ""){
-                      $('#schemaHistoryTableContainer').html('<p>Selecione uma data para visualizar os detalhes.</p>');
-                      return;
-                    }
-                    var filteredHistory = history.filter(function(item){
-                      var d = new Date(item.date_collect);
-                      return d.toLocaleDateString() === selectedDate;
-                    });
-                    var newTableHtml = buildSchemaHistoryTable(filteredHistory);
-                    $('#schemaHistoryTableContainer').html(newTableHtml);
-                  });
-                } else {
-                  $('#detailsContainer').html('<p>Erro ao carregar o histórico de schemas: ' + resp.data + '</p>');
-                }
-              },
-              error: function() {
-                $('#detailsContainer').html('<p>Erro ao carregar o histórico de schemas.</p>');
-              }
-            });
-          }
-          function buildSchemaHistoryTable(history) {
-            var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
-            tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Schema (antigo → novo)</th><th>Data Coleta</th>';
-            tableHtml += '</tr></thead>';
-            tableHtml += '<tbody>';
-            history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
-              tableHtml += '<td>' + item.change_type + '</td>';
-              tableHtml += '<td>' + item.schema_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
-              tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
-              tableHtml += '</tr>';
-            });
-            tableHtml += '</tbody></table>';
-            return tableHtml;
-          }
-
-          // 2) Funções para histórico de tabelas (no nível do schema)
-          function showTableChangeHistory(host_name, service_name, ambiente, schema_name) {
-            var path = ambiente + '/' + service_name + '/' + schema_name + ' (Histórico de Tabela)';
-            $('#tablePath').text(path);
-            loadTableChangeHistory(host_name, service_name, ambiente, schema_name);
-          }
-          function loadTableChangeHistory(host_name, service_name, ambiente, schema_name) {
-            var html = '<div style="margin-bottom:10px;">';
-            html += '<label for="tableHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
-            html += '<select id="tableHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
-            html += '<option value="">Selecione uma data...</option>';
-            html += '</select>';
-            html += '<br><div id="tableHistoryTableContainer"><p>Selecione uma data para visualizar os detalhes.</p></div>';
-            $('#detailsContainer').html(html);
-            
-            $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
-              method: 'GET',
-              data: { 
-                action: 'getTableHist', 
-                host_name: host_name, 
-                service_name: service_name, 
-                ambiente: ambiente, 
-                schema_name: schema_name 
-              },
-              dataType: 'json',
-              success: function(resp) {
-                if(resp.success && resp.data) {
-                  var history = resp.data;
-                  if(history.length === 0) {
-                    $('#tableHistoryTableContainer').html('<p>Nenhum histórico de tabelas encontrado.</p>');
-                    return;
-                  }
-                  history.sort(function(a,b){
-                    return new Date(a.date_collect) - new Date(b.date_collect);
-                  });
-                  var distinctDates = {};
-                  history.forEach(function(item) {
-                    var d = new Date(item.date_collect);
-                    var dateStr = d.toLocaleDateString();
-                    distinctDates[dateStr] = true;
-                  });
-                  var dates = Object.keys(distinctDates);
-                  dates.sort(function(a, b) {
-                    return new Date(a) - new Date(b);
-                  });
-                  dates.forEach(function(dateStr) {
-                    $('#tableHistoryDateFilter').append('<option value="'+ dateStr +'">'+ dateStr +'</option>');
-                  });
-                  $('#tableHistoryDateFilter').on('change', function(){
-                    var selectedDate = $(this).val();
-                    if(selectedDate === ""){
-                      $('#tableHistoryTableContainer').html('<p>Selecione uma data para visualizar os detalhes.</p>');
-                      return;
-                    }
-                    var filteredHistory = history.filter(function(item){
-                      var d = new Date(item.date_collect);
-                      return d.toLocaleDateString() === selectedDate;
-                    });
-                    var newTableHtml = buildTableHistoryTable(filteredHistory);
-                    $('#tableHistoryTableContainer').html(newTableHtml);
-                  });
-                } else {
-                  $('#detailsContainer').html('<p>Erro ao carregar o histórico de tabelas: ' + resp.data + '</p>');
-                }
-              },
-              error: function() {
-                $('#detailsContainer').html('<p>Erro ao carregar o histórico de tabelas.</p>');
-              }
-            });
-          }
-          function buildTableHistoryTable(history) {
-            var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
-            tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Tabela (antigo → novo)</th><th>Data Coleta</th>';
-            tableHtml += '</tr></thead>';
-            tableHtml += '<tbody>';
-            history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
-              tableHtml += '<td>' + item.change_type + '</td>';
-              tableHtml += '<td>' + item.object_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
-              tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
-              tableHtml += '</tr>';
-            });
-            tableHtml += '</tbody></table>';
-            return tableHtml;
-          }
-
-          // Eventos de exibição dos colapsáveis
+          // Eventos de collapse
           $(document).on('shown.bs.collapse', '#chartContainer', function () {
             let $this = $(this);
             let ambiente    = $this.data('amb');
@@ -1236,9 +1281,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             let schemaName  = $this.data('sch');
             let tableName   = $this.data('tbl');
             loadTableHistory(ambiente, serviceName, schemaName, tableName);
+
             let $mainContent = $('#mainContent');
-            $mainContent.animate({ scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top }, 500);
+            $mainContent.animate({
+              scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top
+            }, 500);
           });
+
           $(document).on('shown.bs.collapse', '#viewCodeContainer', function () {
             let $this = $(this);
             let ambiente    = $this.data('amb');
@@ -1247,6 +1296,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             let tableName   = $this.data('tbl');
             loadViewCode(ambiente, serviceName, schemaName, tableName);
           });
+
           $(document).on('shown.bs.collapse', '#relationshipContainer', function () {
             let $this = $(this);
             let ambiente    = $this.data('amb');
@@ -1254,9 +1304,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             let schemaName  = $this.data('sch');
             let tableName   = $this.data('tbl');
             loadTableRelationships(ambiente, serviceName, schemaName, tableName);
+
             let $mainContent = $('#mainContent');
-            $mainContent.animate({ scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top }, 500);
+            $mainContent.animate({
+              scrollTop: $mainContent.scrollTop() + $this.offset().top - $mainContent.offset().top
+            }, 500);
           });
+
           </script>
         </body>
         </html>
