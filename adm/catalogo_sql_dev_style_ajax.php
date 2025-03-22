@@ -567,7 +567,9 @@ elseif ($action === 'getServiceInfo') {
              patch_action           AS acao_patch,
              patch_comments         AS patch_comentarios,
              installed_components   AS componente_instalado,
-             technology as tecnologia
+             technology as tecnologia,
+             date_collect as data_coleta
+
         FROM administracao.catalog_database_infos
         WHERE ambiente = $1
           AND host_name = $2
@@ -649,7 +651,7 @@ elseif ($action === 'getTableHist') {
        AND service_name = $2
        AND ambiente = $3
        AND schema_name = $4
-     ORDER BY date_processing DESC
+     ORDER BY date_processing DESC, change_type DESC, object_name ASC
     ";
     $params = [$host, $srv, $ambiente, $schema];
     $result = pg_query_params($conexao, $sql, $params);
@@ -686,7 +688,7 @@ elseif ($action === 'getTableHist') {
           AND ambiente = $3
           AND schema_name = $4
           AND table_name = $5
-        ORDER BY date_processing DESC
+        ORDER BY date_processing  DESC
     ";
     $params = [$host_name, $service_name, $ambiente, $schema_name, $table_name];
     $result = pg_query_params($conexao, $sql, $params);

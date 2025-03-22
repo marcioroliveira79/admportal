@@ -1013,9 +1013,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 html += '</div>';
                 html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
                 html += '<tr><th>Ambiente</th><td>' + (first.ambiente || '') + '</td></tr>';
-                html += '<tr><th>Data Criação</th><td>' + (first.data_criacao || '') + '</td></tr>';
-                html += '<tr><th>Último Start</th><td>' + (first.ultimo_start || '') + '</td></tr>';
+                html += '<tr><th>Data Criação</th><td>' + (formatDateTime(first.data_criacao) || '') + '</td></tr>';
+                html += '<tr><th>Último Start</th><td>' + (formatDateTime(first.ultimo_start) || '') + '</td></tr>';
                 html += '<tr><th>Host</th><td>' + (first.nome_host || '') + '</td></tr>';
+                html += '<tr><th>Data Coleta Informações</th><td>' + (formatDateTime(first.data_coleta) || '') + '</td></tr>';
                 html += '</table>';
                 html += '<h6>Histórico de Patches / Ações</h6>';
                 html += '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
@@ -1025,7 +1026,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 html += '<tbody>';
                 rows.forEach(function(r) {
                   html += '<tr>';
-                  html += '<td>' + (r.data_aplicacao_patch || '') + '</td>';
+                  html += '<td>' + (formatDateTime(r.data_aplicacao_patch) || '') + '</td>';
                   html += '<td>' + (r.acao_patch || '') + '</td>';
                   html += '<td>' + (r.patch_comentarios || '') + '</td>';
                   html += '</tr>';
@@ -1048,8 +1049,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             loadSchemaHistory(host_name, service_name, ambiente);
           }
           function loadSchemaHistory(host_name, service_name, ambiente) {
-            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name + ' (Histórico do Schema)');
-            
+            $('#tablePath').text(ambiente + '/' + host_name + '/' + service_name);
             var html = '<div style="margin-bottom:10px;">';
             html += '<label for="schemaHistoryDateFilter"><strong>Data de Coleta:</strong></label> ';
             html += '<select id="schemaHistoryDateFilter" class="form-select form-select-sm" style="max-width:300px;">';
@@ -1112,12 +1112,11 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function buildSchemaHistoryTable(history) {
             var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
             tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Schema (antigo → novo)</th><th>Data Coleta</th>';
+            tableHtml += '<th>Tipo da Mudança</th><th>Schema (antigo → novo)</th><th>Data Coleta</th>';
             tableHtml += '</tr></thead>';
             tableHtml += '<tbody>';
             history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
+              tableHtml += '<tr>';              
               tableHtml += '<td>' + item.change_type + '</td>';
               tableHtml += '<td>' + item.schema_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
               tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
@@ -1277,12 +1276,11 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function buildAttributeHistoryTable(history) {
             var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
             tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Atributo (antigo → novo)</th><th>Data Coleta</th>';
+            tableHtml += '<th>Tipo da Mudança</th><th>Atributo (antigo → novo)</th><th>Data Coleta</th>';
             tableHtml += '</tr></thead>';
             tableHtml += '<tbody>';
             history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
+              tableHtml += '<tr>';              
               tableHtml += '<td>' + item.change_type + '</td>';
               tableHtml += '<td>' + item.object_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
               tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
@@ -1291,16 +1289,17 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             tableHtml += '</tbody></table>';
             return tableHtml;
           }
+          // Função para montar a tabela do histórico de tabelas
           function buildTableHistoryTable(history) {
             var tableHtml = '<table class="table table-bordered table-sm" style="width:100%; font-size: 13px;">';
             tableHtml += '<thead><tr>';
-            tableHtml += '<th>Data Processamento</th><th>Tipo da Mudança</th><th>Tabela (antigo → novo)</th><th>Data Coleta</th>';
+            tableHtml += '<th>Tipo da Mudança</th><th>Schema</th><th>Tabela (antigo → novo)</th><th>Data Coleta</th>';
             tableHtml += '</tr></thead>';
             tableHtml += '<tbody>';
             history.forEach(function(item) {
-              tableHtml += '<tr>';
-              tableHtml += '<td>' + formatDateTime(item.date_processing) + '</td>';
+              tableHtml += '<tr>';              
               tableHtml += '<td>' + item.change_type + '</td>';
+              tableHtml += '<td>' + item.schema_name + '</td>';
               tableHtml += '<td>' + item.object_name + (item.new_name ? (' → ' + item.new_name) : '') + '</td>';
               tableHtml += '<td>' + formatDateTime(item.date_collect) + '</td>';
               tableHtml += '</tr>';

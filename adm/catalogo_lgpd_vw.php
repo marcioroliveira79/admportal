@@ -96,7 +96,6 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             #attributesTable tr:hover {
                 background-color: #f1f1f1;
             }
-
             /* Ajustes de largura das colunas */
             #attributesTable th:nth-child(1),
             #attributesTable td:nth-child(1) {
@@ -146,26 +145,24 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
+            /* A coluna DEF será a 9ª no HTML */
             #attributesTable th:nth-child(9),
             #attributesTable td:nth-child(9) {
-                width: 100px;
+                width: 120px;
                 text-align: center;
                 vertical-align: middle;
                 padding: 5px;
             }
-
             /* Botão disabled mais opaco */
             .btn[disabled],
             .btn.disabled {
                 opacity: 0.1; 
                 pointer-events: none;
             }
-
             /* Diminui a fonte dos selects (combos) */
             .form-select.form-select-sm {
                 font-size: 11px;
             }
-
             /* Expandir sub-linha dentro da 1ª coluna */
             .coluna-cell {
                 position: relative;
@@ -178,9 +175,29 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             tr.shown .expand-icon {
                 background: #e9ecef;
             }
+            /* Estilo do loading overlay */
+            #loading {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(255,255,255,0.7);
+                z-index: 9999;
+                text-align: center;
+                padding-top: 20%;
+                font-size: 18px;
+                color: #333;
+            }
             </style>
         </head>
         <body>
+            <!-- Overlay de Loading -->
+            <div id="loading">
+                <span>Carregando...</span>
+            </div>
+            
             <div class="container">
                 <?php if (!empty($mensagem)): ?>
                     <div class="alert alert-info text-center">
@@ -250,6 +267,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 <th>COMENTÁRIO</th>
                                 <th>AÇÃO</th>
                                 <th>INFO</th>
+                                <th>DEF</th> <!-- Nova coluna DEF -->
                                 <th>MARCAR</th>
                             </tr>
                         </thead>
@@ -278,6 +296,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 // 1) Carregamento dos combos (ambiente, service, schema, table)
                 $('#ambiente').on('change', function(){
                     var ambiente = $(this).val();
+                    $('#loading').show(); // Exibe o loading
+
                     $('#service_name').html('<option value="">Selecione o Service Name</option>').prop('disabled', true);
                     $('#schema_name').html('<option value="">Selecione o Schema</option>').prop('disabled', true);
                     $('#table_name').html('<option value="">Selecione a Tabela</option>').prop('disabled', true);
@@ -297,14 +317,20 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     });
                                     $('#service_name').html(options).prop('disabled', false);
                                 }
+                            },
+                            complete: function(){
+                                $('#loading').hide(); // Oculta o loading ao finalizar
                             }
                         });
+                    } else {
+                        $('#loading').hide();
                     }
                 });
 
                 $('#service_name').on('change', function(){
                     var ambiente = $('#ambiente').val();
                     var service_name = $(this).val();
+                    $('#loading').show();
                     $('#schema_name').html('<option value="">Selecione o Schema</option>').prop('disabled', true);
                     $('#table_name').html('<option value="">Selecione a Tabela</option>').prop('disabled', true);
                     $('#btnConsultar').prop('disabled', true);
@@ -323,8 +349,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     });
                                     $('#schema_name').html(options).prop('disabled', false);
                                 }
+                            },
+                            complete: function(){
+                                $('#loading').hide();
                             }
                         });
+                    } else {
+                        $('#loading').hide();
                     }
                 });
 
@@ -332,6 +363,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     var ambiente = $('#ambiente').val();
                     var service_name = $('#service_name').val();
                     var schema_name = $(this).val();
+                    $('#loading').show();
                     $('#table_name').html('<option value="">Selecione a Tabela</option>').prop('disabled', true);
                     $('#btnConsultar').prop('disabled', true);
 
@@ -349,8 +381,13 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     });
                                     $('#table_name').html(options).prop('disabled', false);
                                 }
+                            },
+                            complete: function(){
+                                $('#loading').hide();
                             }
                         });
+                    } else {
+                        $('#loading').hide();
                     }
                 });
 
@@ -392,6 +429,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                 // 3) Botão Consultar -> getAttributes
                 $('#btnConsultar').on('click', function(){
+                    $('#loading').show(); // Exibe o loading ao iniciar a consulta
                     var ambiente = $('#ambiente').val();
                     var service_name = $('#service_name').val();
                     var schema_name = $('#schema_name').val();
@@ -431,6 +469,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     var columnComment  = comentario;
                                     var acaoAtual      = item.acao_lgpd || '';
                                     var infoAtual      = item.lgpd_informacao || '';
+                                    var defValue       = item.lgpd_definicao || ''; // Valor original de lgpd_definicao
 
                                     // Campos extras para a expansão
                                     var acaoAtualCampo = item.acao_lgpd_atual || '';
@@ -469,13 +508,14 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     });
                                     selectAcao += '</select>';
 
-                                    // Monta combo de Info
+                                    // Monta combo de Info (inicial)
                                     var selectInfo = '<select class="form-select form-select-sm select-info-linha">';
                                     if(infoAtual){
                                         selectInfo += '<option value="'+infoAtual+'">'+infoAtual+'</option>';
                                     } else {
                                         selectInfo += '<option value="">Selecione...</option>';
                                     }
+                                    // Se existe uma ação atual, carrega as opções correspondentes
                                     if(acaoAtual && acoesInfosMap[acaoAtual]){
                                         acoesInfosMap[acaoAtual].forEach(function(info){
                                             if(info !== infoAtual){
@@ -485,30 +525,40 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                     }
                                     selectInfo += '</select>';
 
+                                    // Cria apenas um SELECT placeholder para DEF
+                                    var defSelect = '<select class="form-select form-select-sm select-def-linha" disabled>'
+                                                  + '<option value="">--</option>'
+                                                  + '</select>';
+
                                     // Botão Inserir/Remover
                                     var acaoButton = '';
                                     var disabledStr = '';
                                     if(acaoAtual && infoAtual){
                                         if(item.fk_lgpd_marcacao && item.fk_lgpd_marcacao !== '0'){
+                                            // Já existe registro => Botão Remover
                                             acaoButton = '<button class="btn btn-danger btn-sm remover-btn" '+
                                                          'data-column_comment="'+ columnComment +'" '+
                                                          'data-data_base="'+ dataBase +'" '+
                                                          'data-host_name="'+ hostName +'">Remover</button>';
                                             disabledStr = 'disabled';
                                         } else {
+                                            // Ainda não existe => Botão Inserir
                                             acaoButton = '<button class="btn btn-success btn-sm inserir-btn" '+
                                                          'data-column_comment="'+ columnComment +'" '+
                                                          'data-data_base="'+ dataBase +'" '+
                                                          'data-host_name="'+ hostName +'">Inserir</button>';
                                         }
                                     } else {
+                                        // Se Ação ou Info não estiverem selecionadas, Botão Inserir fica desabilitado
                                         acaoButton = '<button class="btn btn-success btn-sm inserir-btn" disabled '+
                                                      'data-column_comment="'+ columnComment +'" '+
                                                      'data-data_base="'+ dataBase +'" '+
                                                      'data-host_name="'+ hostName +'">Inserir</button>';
                                     }
 
-                                    var row = '<tr>'+
+                                    // Monta a linha
+                                    var row = '<tr '+
+                                              'data-def_value="'+ defValue +'">'+
                                         firstCell +
                                         '<td>'+ (item.data_type || '') +'</td>'+
                                         '<td>'+ (item.data_length || '') +'</td>'+
@@ -517,28 +567,41 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                         '<td title="'+ comentario +'">'+ comentario +'</td>'+
                                         '<td>'+ selectAcao +'</td>'+
                                         '<td>'+ selectInfo +'</td>'+
+                                        '<td>'+ defSelect +'</td>'+
                                         '<td>'+ acaoButton +'</td>'+
                                     '</tr>';
 
                                     var $rowObj = $(row);
+
+                                    // Se disabledStr está definido => desabilita Ação, Info e DEF
                                     if(disabledStr){
                                         $rowObj.find('.select-acao-linha').prop('disabled', true);
                                         $rowObj.find('.select-info-linha').prop('disabled', true);
+                                        $rowObj.find('.select-def-linha').prop('disabled', true);
                                     }
+
+                                    // Adiciona a linha na tabela
                                     $('#attributesTable tbody').append($rowObj);
                                 });
 
                                 $('#totalResults').html('Total de resultados: ' + response.data.length);
                             } else {
                                 $('#tableComment').html("Sem comentário");
-                                $('#attributesTable tbody').html('<tr><td colspan="9" class="text-center">Nenhum dado encontrado.</td></tr>');
+                                $('#attributesTable tbody').html('<tr><td colspan="10" class="text-center">Nenhum dado encontrado.</td></tr>');
                                 $('#totalResults').html('Total de resultados: 0');
                             }
 
                             // Inicializa DataTable
                             var dt = $('#attributesTable').DataTable({ autoWidth: false });
 
-                            // Clique no expand-icon
+                            // Sempre que uma nova página for desenhada, atualiza o DEF
+                            dt.on('draw.dt', function(){
+                                $('#attributesTable tbody tr').each(function(){
+                                    updateDef($(this));
+                                });
+                            });
+
+                            // Clique no expand-icon (sub-linha)
                             $('#attributesTable tbody').on('click', '.expand-icon', function(){
                                 var $cell = $(this).closest('td.coluna-cell');
                                 var $tr = $cell.closest('tr');
@@ -556,12 +619,20 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                 }
                             });
 
+                            // Após carregar todas as linhas, atualizamos o DEF de cada uma conforme a regra
+                            $('#attributesTable tbody tr').each(function(){
+                                updateDef($(this));
+                            });
+
                             $('#attributeListContainer').show();
+                        },
+                        complete: function(){
+                            $('#loading').hide(); // Oculta o loading quando a requisição finalizar
                         }
                     });
                 });
 
-                // Sub-linha expandida
+                // Função para formatar sub-linha (expansão)
                 function formatDetails($cell){
                     var atributoRel   = $cell.attr('data-atributo_relacionado') || '';
                     var palavraRel    = $cell.attr('data-palavra_relacionada') || '';
@@ -595,12 +666,70 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     return html;
                 }
 
-                // Quando muda combo Ação, filtra combo Info
+                // Função para atualizar o DEF de uma linha conforme a INFO e a AÇÃO
+                function updateDef($linha) {
+                    var isAlreadyMarked = $linha.find('.remover-btn').length > 0;
+                    // Converte os valores para caixa alta e remove espaços extras para a comparação
+                    var acaoVal = ($linha.find('.select-acao-linha').val() || '').trim().toUpperCase();
+                    var infoVal = ($linha.find('.select-info-linha').val() || '').trim().toUpperCase();
+                    var defValueOriginal = $linha.attr('data-def_value') || '';
+                    var $defSelect = $linha.find('.select-def-linha');
+
+                    // Limpa o select antes de atualizar
+                    $defSelect.empty();
+
+                    // Se o registro já existe, mostra o valor do banco e mantém desabilitado
+                    if (isAlreadyMarked) {
+                        var valLocked = defValueOriginal || '';
+                        $defSelect.append('<option value="'+valLocked+'">'+valLocked+'</option>');
+                        $defSelect.prop('disabled', true);
+                        return;
+                    }
+
+                    // Regra 1: Se INFO for PESSOAL ou SENSÍVEL, o DEF deve assumir esse valor e ficar desabilitado.
+                    if (infoVal === 'PESSOAL' || infoVal === 'SENSÍVEL') {
+                        $defSelect.append('<option value="'+infoVal+'">'+infoVal+'</option>');
+                        $defSelect.prop('disabled', true);
+                        return;
+                    }
+
+                    // Regra 2: Se AÇÃO for NÃO ANONIMIZAR e INFO for CHAVE PRIMÁRIA, CHAVE ESTRANGEIRA ou REGRA DE NEGÓCIO,
+                    // ou se INFO for ALTERAÇÃO, habilita o campo DEF com as opções PESSOAL, SENSÍVEL e COMUM (além da opção vazia "Selecione")
+                    if ((acaoVal === 'NÃO ANONIMIZAR' &&
+                        (infoVal === 'CHAVE PRIMÁRIA' || infoVal === 'CHAVE ESTRANGEIRA' || infoVal === 'REGRA DE NEGÓCIO')) || infoVal === 'ALTERAÇÃO') {
+                        $defSelect.prop('disabled', false);
+                        var opcoes = ['', 'PESSOAL', 'SENSÍVEL', 'COMUM'];
+                        opcoes.forEach(function(opcao) {
+                            if (opcao === '') {
+                                $defSelect.append('<option value="">Selecione</option>');
+                            } else {
+                                $defSelect.append('<option value="'+opcao+'">'+opcao+'</option>');
+                            }
+                        });
+                        if (opcoes.includes(defValueOriginal)) {
+                            $defSelect.val(defValueOriginal);
+                        } else {
+                            $defSelect.val('');
+                        }
+                        return;
+                    }
+
+                    // Regra 3: Para os demais cenários, exibe o valor original de lgpd_definicao (ou "Selecione" se estiver vazio) e desabilita o campo.
+                    var valFinal = defValueOriginal;
+                    if (valFinal === '') {
+                        valFinal = 'Selecione';
+                    }
+                    $defSelect.append('<option value="'+defValueOriginal+'">'+valFinal+'</option>');
+                    $defSelect.prop('disabled', true);
+                }
+
+                // Quando muda AÇÃO, recarrega o combo INFO e atualiza DEF
                 $(document).on('change', '.select-acao-linha', function(){
                     var $linha = $(this).closest('tr');
                     var acaoSel = $(this).val();
                     var $comboInfo = $linha.find('.select-info-linha');
 
+                    // Recarrega as opções de INFO conforme acoesInfosMap
                     $comboInfo.empty();
                     if(!acaoSel || !acoesInfosMap[acaoSel]){
                         $comboInfo.append('<option value="">Selecione...</option>');
@@ -610,15 +739,19 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                             $comboInfo.append('<option value="'+info+'">'+info+'</option>');
                         });
                     }
+
+                    updateDef($linha);
                     verificarHabilitarInserir($linha);
                 });
 
-                // Quando muda combo Info, checa se habilita Inserir
+                // Quando muda INFO, só atualiza DEF e o botão de inserir
                 $(document).on('change', '.select-info-linha', function(){
                     var $linha = $(this).closest('tr');
+                    updateDef($linha);
                     verificarHabilitarInserir($linha);
                 });
 
+                // Verifica se habilita o botão Inserir
                 function verificarHabilitarInserir($linha){
                     var acaoVal = $linha.find('.select-acao-linha').val() || '';
                     var infoVal = $linha.find('.select-info-linha').val() || '';
@@ -641,9 +774,20 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                     var $linha = btn.closest('tr');
                     var acao_lgpd = $linha.find('.select-acao-linha').val();
                     var lgpd_informacao = $linha.find('.select-info-linha').val();
+                    var lgpd_definicao = $linha.find('.select-def-linha').val() || '';
 
-                    if(!acao_lgpd || !lgpd_informacao){
-                        alert('Selecione uma Ação e uma Info antes de inserir!');
+                    if(!acao_lgpd || !lgpd_informacao || !lgpd_definicao){
+                        alert('Selecione uma Ação, uma Info e uma DEF antes de inserir!');
+                        return;
+                    }
+
+                    // Se a ação for NÃO ANONIMIZAR e INFO for CHAVE ESTRANGEIRA/PRIMÁRIA/REGRA DE NEGÓCIO,
+                    // verifica se DEF foi selecionado (PESSOAL, SENSÍVEL ou COMUM)
+                    if(acao_lgpd === 'NÃO ANONIMIZAR' &&
+                       (lgpd_informacao === 'CHAVE ESTRANGEIRA' || lgpd_informacao === 'CHAVE PRIMÁRIA' || lgpd_informacao === 'REGRA DE NEGÓCIO') &&
+                       (!lgpd_definicao || (lgpd_definicao !== 'PESSOAL' && lgpd_definicao !== 'SENSÍVEL' && lgpd_definicao !== 'COMUM')))
+                    {
+                        alert('Para a ação NÃO ANONIMIZAR, selecione um valor válido em DEF (PESSOAL, SENSÍVEL ou COMUM).');
                         return;
                     }
 
@@ -672,6 +816,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                             column_name: column_name,
                             acao_lgpd: acao_lgpd,
                             lgpd_informacao: lgpd_informacao,
+                            lgpd_definicao: lgpd_definicao,
                             data_base: data_base,
                             host_name: host_name,
                             column_comment: column_comment
@@ -686,6 +831,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                                // Desabilita combos
                                $linha.find('.select-acao-linha').prop('disabled', true);
                                $linha.find('.select-info-linha').prop('disabled', true);
+                               $linha.find('.select-def-linha').prop('disabled', true);
                            } else {
                                alert('Erro: ' + response.message);
                            }
@@ -740,6 +886,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                                $linha.find('.select-acao-linha').prop('disabled', false);
                                $linha.find('.select-info-linha').prop('disabled', false);
+                               $linha.find('.select-def-linha').prop('disabled', false);
 
                                var acaoVal = $linha.find('.select-acao-linha').val() || '';
                                var infoVal = $linha.find('.select-info-linha').val() || '';

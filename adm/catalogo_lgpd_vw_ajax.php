@@ -10,7 +10,7 @@ $response = ['success' => false, 'data' => []];
 // 1) getServiceNames
 if ($action == 'getServiceNames') {
     $ambiente = $_GET['ambiente'] ?? '';
-    $query = "SELECT DISTINCT service_name 
+    $query = "SELECT DISTINCT service_name
               FROM administracao.catalog_vw_lgpd_marcacao
               WHERE ambiente = $1
               ORDER BY service_name";
@@ -30,7 +30,7 @@ elseif ($action == 'getSchemas') {
     $service_name = $_GET['service_name'] ?? '';
     $query = "SELECT DISTINCT schema_name
               FROM administracao.catalog_vw_lgpd_marcacao
-              WHERE ambiente = $1 
+              WHERE ambiente = $1
                 AND service_name = $2
               ORDER BY schema_name";
     $result = pg_query_params($conexao, $query, [$ambiente, $service_name]);
@@ -48,17 +48,65 @@ elseif ($action == 'getTables') {
     $ambiente = $_GET['ambiente'] ?? '';
     $service_name = $_GET['service_name'] ?? '';
     $schema_name = $_GET['schema_name'] ?? '';
-    $query = "SELECT DISTINCT table_name
-              FROM administracao.catalog_vw_lgpd_marcacao
-              WHERE ambiente = $1
-                AND service_name = $2
-                AND schema_name = $3
-              ORDER BY table_name";
+
+    /*
+     * Query que calcula:
+     *  - marking_count: quantos registros têm (contem_palavra = TRUE ou contem_atributo = TRUE)
+     *  - insert_mark:   quantos desses registros já estão inseridos na tabela catalog_lgpd_marcacao
+     * Se marking_count > 0 e insert_mark < marking_count => ( ! )
+     * Se marking_count > 0 e insert_mark = marking_count => ( OK )
+     */
+    $query = "
+        SELECT 
+            lg.table_name,
+            SUM(
+              CASE 
+                WHEN (lg.contem_palavra IS TRUE OR lg.contem_atributo IS TRUE) 
+                THEN 1 
+                ELSE 0 
+              END
+            ) AS marking_count,
+            SUM(
+              CASE 
+                WHEN (mc.id IS NOT NULL) 
+                THEN 1 
+                ELSE 0 
+              END
+            ) AS insert_mark
+        FROM administracao.catalog_vw_lgpd_marcacao lg
+        LEFT JOIN administracao.catalog_lgpd_marcacao mc
+               ON mc.ambiente     = lg.ambiente
+              AND mc.service_name = lg.service_name
+              AND mc.schema_name  = lg.schema_name
+              AND mc.table_name   = lg.table_name
+              AND mc.column_name  = lg.column_name
+        WHERE lg.ambiente     = $1
+          AND lg.service_name = $2
+          AND lg.schema_name  = $3
+        GROUP BY lg.table_name
+        ORDER BY lg.table_name
+    ";
     $result = pg_query_params($conexao, $query, [$ambiente, $service_name, $schema_name]);
     if ($result) {
         $arr = [];
         while ($row = pg_fetch_assoc($result)) {
-            $arr[] = $row['table_name'];
+            $nomeTabela    = $row['table_name'];
+            $markingCount  = (int)$row['marking_count'];
+            $insertMark    = (int)$row['insert_mark'];
+
+            // Se markingCount > 0, decide o prefixo:
+            // ( OK ) se insertMark == markingCount
+            // ( ! )  se insertMark < markingCount
+            // se markingCount = 0, não mostra prefixo
+            if ($markingCount > 0) {
+                if ($insertMark >= $markingCount) {
+                    $nomeTabela = '( OK ) ' . $nomeTabela;
+                } else {
+                    $nomeTabela = '( ! ) ' . $nomeTabela;
+                }
+            }
+
+            $arr[] = $nomeTabela;
         }
         $response['data'] = $arr;
         $response['success'] = true;
@@ -66,10 +114,13 @@ elseif ($action == 'getTables') {
 }
 // 4) getAttributes
 elseif ($action == 'getAttributes') {
-    $ambiente = $_GET['ambiente'] ?? '';
+    $ambiente     = $_GET['ambiente'] ?? '';
     $service_name = $_GET['service_name'] ?? '';
-    $schema_name = $_GET['schema_name'] ?? '';
-    $table_name = $_GET['table_name'] ?? '';
+    $schema_name  = $_GET['schema_name'] ?? '';
+    $table_name   = $_GET['table_name'] ?? '';
+
+    // Remove possíveis prefixos do nome da tabela
+    $table_name = str_replace(['( ! ) ', '( OK ) '], '', $table_name);
 
     $query = "
         SELECT
@@ -83,15 +134,16 @@ elseif ($action == 'getAttributes') {
             is_fk,
             acao_lgpd,
             lgpd_informacao,
-            acao_lgpd_atual,        -- NOVO
-            lgpd_informacao_atual,  -- NOVO
+            acao_lgpd_atual,
+            lgpd_informacao_atual,
             fk_lgpd_marcacao,
             data_base,
             host_name,
-            atributo_relacionado,   -- NOVO
-            palavra_relacionada,    -- NOVO
-            nome_usuario_criador,   -- se existir na view
-            data_criacao_marcacao   -- se existir na view
+            atributo_relacionado,
+            palavra_relacionada,
+            nome_usuario_criador,
+            lgpd_definicao,
+            data_criacao_marcacao
         FROM administracao.catalog_vw_lgpd_marcacao
         WHERE ambiente = $1
           AND service_name = $2
@@ -142,9 +194,14 @@ elseif ($action == 'insertAttribute') {
     $service_name    = $_GET['service_name'] ?? '';
     $schema_name     = $_GET['schema_name'] ?? '';
     $table_name      = $_GET['table_name'] ?? '';
+
+    // Remove possíveis prefixos
+    $table_name = str_replace(['( ! ) ', '( OK ) '], '', $table_name);
+
     $column_name     = $_GET['column_name'] ?? '';
     $acao_lgpd       = $_GET['acao_lgpd'] ?? '';
     $lgpd_informacao = $_GET['lgpd_informacao'] ?? '';
+    $lgpd_definicao  = $_GET['lgpd_definicao'] ?? '';
     $column_comment  = $_GET['column_comment'] ?? '';
     $data_base       = $_GET['data_base'] ?? '';
     $host_name       = $_GET['host_name'] ?? '';
@@ -153,8 +210,8 @@ elseif ($action == 'insertAttribute') {
 
     $insertQuery = "
         INSERT INTO administracao.catalog_lgpd_marcacao 
-        (ambiente, data_base, host_name, service_name, schema_name, table_name, column_name, column_comment, acao_lgpd, lgpd_informacao, fk_usuario_criador)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (ambiente, data_base, host_name, service_name, schema_name, table_name, column_name, column_comment, acao_lgpd, lgpd_informacao, lgpd_definicao, fk_usuario_criador)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ";
     $params = [
         $ambiente,
@@ -167,6 +224,7 @@ elseif ($action == 'insertAttribute') {
         $column_comment,
         $acao_lgpd,
         $lgpd_informacao,
+        $lgpd_definicao,
         $fk_usuario_criador
     ];
     $result = pg_query_params($conexao, $insertQuery, $params);
@@ -185,10 +243,14 @@ elseif ($action == 'removeAttribute') {
     $service_name= $_GET['service_name'] ?? '';
     $schema_name = $_GET['schema_name'] ?? '';
     $table_name  = $_GET['table_name'] ?? '';
+
+    // Remove possíveis prefixos
+    $table_name = str_replace(['( ! ) ', '( OK ) '], '', $table_name);
+
     $column_name = $_GET['column_name'] ?? '';
 
     $deleteQuery = "
-        DELETE FROM administracao.catalog_lgpd_marcacao 
+        DELETE FROM administracao.catalog_lgpd_marcacao
          WHERE ambiente = $1
            AND data_base = $2
            AND host_name = $3
