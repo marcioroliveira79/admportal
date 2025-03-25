@@ -2,8 +2,8 @@
 <?php
 ##catalogo_dsb_compara_ambiente_schema_ajax.php
 session_start();
-require_once("../module/conecta.php");
-require_once("../module/functions.php");
+require_once("module/conecta.php");
+require_once("module/functions.php");
 
 $pg = new portal();
 $conexao = $pg->conectar_obj();

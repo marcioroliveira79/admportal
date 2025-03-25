@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once("../module/conecta.php");
+require_once("module/conecta.php");
 
 header('Content-Type: application/json');
 

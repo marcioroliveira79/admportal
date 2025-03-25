@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once("../module/conecta.php");
-require_once("../module/functions.php");
+require_once("module/conecta.php");
+require_once("module/functions.php");
 
 date_default_timezone_set('America/Sao_Paulo');
 $dataHora = date("d-m-Y H:i:s");

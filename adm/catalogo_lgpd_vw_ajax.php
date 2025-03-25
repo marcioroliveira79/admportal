@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once("../module/conecta.php");
+require_once("module/conecta.php");
 $pg = new portal();
 $conexao = $pg->conectar_obj();
 
@@ -10,11 +10,33 @@ $response = ['success' => false, 'data' => []];
 // 1) getServiceNames
 if ($action == 'getServiceNames') {
     $ambiente = $_GET['ambiente'] ?? '';
-    $query = "SELECT DISTINCT service_name
-              FROM administracao.catalog_vw_lgpd_marcacao
-              WHERE ambiente = $1
-              ORDER BY service_name";
-    $result = pg_query_params($conexao, $query, [$ambiente]);
+    $filtrarUsuario = (isset($_GET['user']) && $_GET['user'] === 'ON');
+    
+    if ($filtrarUsuario) {
+        $query = "
+            SELECT DISTINCT c.service_name
+            FROM administracao.catalog_lgpd_acesso_schema_marcacao c
+            JOIN administracao.catalog_vw_lgpd_marcacao v
+              ON c.ambiente = v.ambiente
+             AND c.data_base = v.data_base
+             AND c.host_name = v.host_name
+             AND c.service_name = v.service_name
+             AND c.schema_name = v.schema_name
+            WHERE c.fk_usuario = $1
+              AND c.ambiente = $2
+            ORDER BY c.service_name
+        ";
+        $result = pg_query_params($conexao, $query, [$_SESSION['global_id_usuario'], $ambiente]);
+    } else {
+        $query = "
+            SELECT DISTINCT service_name
+            FROM administracao.catalog_vw_lgpd_marcacao
+            WHERE ambiente = $1
+            ORDER BY service_name
+        ";
+        $result = pg_query_params($conexao, $query, [$ambiente]);
+    }
+    
     if ($result) {
         $arr = [];
         while ($row = pg_fetch_assoc($result)) {
@@ -28,12 +50,35 @@ if ($action == 'getServiceNames') {
 elseif ($action == 'getSchemas') {
     $ambiente = $_GET['ambiente'] ?? '';
     $service_name = $_GET['service_name'] ?? '';
-    $query = "SELECT DISTINCT schema_name
-              FROM administracao.catalog_vw_lgpd_marcacao
-              WHERE ambiente = $1
-                AND service_name = $2
-              ORDER BY schema_name";
-    $result = pg_query_params($conexao, $query, [$ambiente, $service_name]);
+    $filtrarUsuario = (isset($_GET['user']) && $_GET['user'] === 'ON');
+    
+    if ($filtrarUsuario) {
+        $query = "
+            SELECT DISTINCT c.schema_name
+            FROM administracao.catalog_lgpd_acesso_schema_marcacao c
+            JOIN administracao.catalog_vw_lgpd_marcacao v
+              ON c.ambiente = v.ambiente
+             AND c.data_base = v.data_base
+             AND c.host_name = v.host_name
+             AND c.service_name = v.service_name
+             AND c.schema_name = v.schema_name
+            WHERE c.fk_usuario = $1
+              AND c.ambiente = $2
+              AND c.service_name = $3
+            ORDER BY c.schema_name
+        ";
+        $result = pg_query_params($conexao, $query, [$_SESSION['global_id_usuario'], $ambiente, $service_name]);
+    } else {
+        $query = "
+            SELECT DISTINCT schema_name
+            FROM administracao.catalog_vw_lgpd_marcacao
+            WHERE ambiente = $1
+              AND service_name = $2
+            ORDER BY schema_name
+        ";
+        $result = pg_query_params($conexao, $query, [$ambiente, $service_name]);
+    }
+    
     if ($result) {
         $arr = [];
         while ($row = pg_fetch_assoc($result)) {
@@ -49,13 +94,6 @@ elseif ($action == 'getTables') {
     $service_name = $_GET['service_name'] ?? '';
     $schema_name = $_GET['schema_name'] ?? '';
 
-    /*
-     * Query que calcula:
-     *  - marking_count: quantos registros têm (contem_palavra = TRUE ou contem_atributo = TRUE)
-     *  - insert_mark:   quantos desses registros já estão inseridos na tabela catalog_lgpd_marcacao
-     * Se marking_count > 0 e insert_mark < marking_count => ( ! )
-     * Se marking_count > 0 e insert_mark = marking_count => ( OK )
-     */
     $query = "
         SELECT 
             lg.table_name,
@@ -94,10 +132,6 @@ elseif ($action == 'getTables') {
             $markingCount  = (int)$row['marking_count'];
             $insertMark    = (int)$row['insert_mark'];
 
-            // Se markingCount > 0, decide o prefixo:
-            // ( OK ) se insertMark == markingCount
-            // ( ! )  se insertMark < markingCount
-            // se markingCount = 0, não mostra prefixo
             if ($markingCount > 0) {
                 if ($insertMark >= $markingCount) {
                     $nomeTabela = '( OK ) ' . $nomeTabela;

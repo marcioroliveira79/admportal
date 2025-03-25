@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once("../module/conecta.php"); // Ajuste se necessário
+require_once("module/conecta.php"); // Ajuste se necessário
 $pg = new portal();
 $conexao = $pg->conectar_obj();
 

@@ -4,51 +4,39 @@ require_once("../module/conecta.php");
 $pg = new portal();
 $conexao = $pg->conectar_obj();
 
-$fk_usuario_logado = $_SESSION['global_id_usuario'] ?? 0;
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $response = ['success' => false, 'data' => []];
 
-// 1) getUserAmbientes - Retorna apenas os ambientes cadastrados para o usuário
-if ($action == 'getUserAmbientes') {
-    $query = "
-        SELECT DISTINCT c.ambiente
-          FROM administracao.catalog_lgpd_acesso_schema_marcacao c
-          JOIN administracao.catalog_vw_lgpd_marcacao v
-            ON c.ambiente = v.ambiente
-           AND c.data_base = v.data_base
-           AND c.host_name = v.host_name
-           AND c.service_name = v.service_name
-           AND c.schema_name = v.schema_name
-         WHERE c.fk_usuario = $1
-         ORDER BY c.ambiente
-    ";
-    $result = pg_query_params($conexao, $query, [$fk_usuario_logado]);
-    if ($result) {
-        $arr = [];
-        while ($row = pg_fetch_assoc($result)) {
-            $arr[] = $row['ambiente'];
-        }
-        $response['data'] = $arr;
-        $response['success'] = true;
-    }
-}
-// 2) getUserServices - Retorna os service_name permitidos para o usuário, filtrados por ambiente
-elseif ($action == 'getUserServices') {
+// 1) getServiceNames
+if ($action == 'getServiceNames') {
     $ambiente = $_GET['ambiente'] ?? '';
-    $query = "
-        SELECT DISTINCT c.service_name
-          FROM administracao.catalog_lgpd_acesso_schema_marcacao c
-          JOIN administracao.catalog_vw_lgpd_marcacao v
-            ON c.ambiente = v.ambiente
-           AND c.data_base = v.data_base
-           AND c.host_name = v.host_name
-           AND c.service_name = v.service_name
-           AND c.schema_name = v.schema_name
-         WHERE c.fk_usuario = $1
-           AND c.ambiente = $2
-         ORDER BY c.service_name
-    ";
-    $result = pg_query_params($conexao, $query, [$fk_usuario_logado, $ambiente]);
+    $filtrarUsuario = (isset($_GET['user']) && $_GET['user'] === 'ON');
+    
+    if ($filtrarUsuario) {
+        $query = "
+            SELECT DISTINCT c.service_name
+            FROM administracao.catalog_lgpd_acesso_schema_marcacao c
+            JOIN administracao.catalog_vw_lgpd_marcacao v
+              ON c.ambiente = v.ambiente
+             AND c.data_base = v.data_base
+             AND c.host_name = v.host_name
+             AND c.service_name = v.service_name
+             AND c.schema_name = v.schema_name
+            WHERE c.fk_usuario = $1
+              AND c.ambiente = $2
+            ORDER BY c.service_name
+        ";
+        $result = pg_query_params($conexao, $query, [$_SESSION['global_id_usuario'], $ambiente]);
+    } else {
+        $query = "
+            SELECT DISTINCT service_name
+            FROM administracao.catalog_vw_lgpd_marcacao
+            WHERE ambiente = $1
+            ORDER BY service_name
+        ";
+        $result = pg_query_params($conexao, $query, [$ambiente]);
+    }
+    
     if ($result) {
         $arr = [];
         while ($row = pg_fetch_assoc($result)) {
@@ -58,25 +46,39 @@ elseif ($action == 'getUserServices') {
         $response['success'] = true;
     }
 }
-// 3) getUserSchemas - Retorna os schemas permitidos para o usuário, filtrados por ambiente e service
-elseif ($action == 'getUserSchemas') {
+// 2) getSchemas
+elseif ($action == 'getSchemas') {
     $ambiente = $_GET['ambiente'] ?? '';
     $service_name = $_GET['service_name'] ?? '';
-    $query = "
-        SELECT DISTINCT c.schema_name
-          FROM administracao.catalog_lgpd_acesso_schema_marcacao c
-          JOIN administracao.catalog_vw_lgpd_marcacao v
-            ON c.ambiente = v.ambiente
-           AND c.data_base = v.data_base
-           AND c.host_name = v.host_name
-           AND c.service_name = v.service_name
-           AND c.schema_name = v.schema_name
-         WHERE c.fk_usuario = $1
-           AND c.ambiente = $2
-           AND c.service_name = $3
-         ORDER BY c.schema_name
-    ";
-    $result = pg_query_params($conexao, $query, [$fk_usuario_logado, $ambiente, $service_name]);
+    $filtrarUsuario = (isset($_GET['user']) && $_GET['user'] === 'ON');
+    
+    if ($filtrarUsuario) {
+        $query = "
+            SELECT DISTINCT c.schema_name
+            FROM administracao.catalog_lgpd_acesso_schema_marcacao c
+            JOIN administracao.catalog_vw_lgpd_marcacao v
+              ON c.ambiente = v.ambiente
+             AND c.data_base = v.data_base
+             AND c.host_name = v.host_name
+             AND c.service_name = v.service_name
+             AND c.schema_name = v.schema_name
+            WHERE c.fk_usuario = $1
+              AND c.ambiente = $2
+              AND c.service_name = $3
+            ORDER BY c.schema_name
+        ";
+        $result = pg_query_params($conexao, $query, [$_SESSION['global_id_usuario'], $ambiente, $service_name]);
+    } else {
+        $query = "
+            SELECT DISTINCT schema_name
+            FROM administracao.catalog_vw_lgpd_marcacao
+            WHERE ambiente = $1
+              AND service_name = $2
+            ORDER BY schema_name
+        ";
+        $result = pg_query_params($conexao, $query, [$ambiente, $service_name]);
+    }
+    
     if ($result) {
         $arr = [];
         while ($row = pg_fetch_assoc($result)) {
@@ -86,19 +88,12 @@ elseif ($action == 'getUserSchemas') {
         $response['success'] = true;
     }
 }
-// 4) getTables - Retorna as tabelas permitidas para o usuário, com prefixo indicando o status da marcação
+// 3) getTables
 elseif ($action == 'getTables') {
     $ambiente = $_GET['ambiente'] ?? '';
     $service_name = $_GET['service_name'] ?? '';
     $schema_name = $_GET['schema_name'] ?? '';
-    
-    /*
-     * Calcula:
-     *  - marking_count: total de colunas que possuem (contem_palavra OR contem_atributo) = TRUE
-     *  - insert_mark: número de colunas que já foram marcadas na tabela catalog_lgpd_marcacao
-     * Caso marking_count > 0, prefixa o nome da tabela com ( OK ) se insert_mark == marking_count
-     * ou com ( ! ) se insert_mark < marking_count.
-     */
+
     $query = "
         SELECT 
             lg.table_name,
@@ -117,12 +112,6 @@ elseif ($action == 'getTables') {
               END
             ) AS insert_mark
         FROM administracao.catalog_vw_lgpd_marcacao lg
-        JOIN administracao.catalog_lgpd_acesso_schema_marcacao c
-          ON lg.ambiente = c.ambiente
-         AND lg.data_base = c.data_base
-         AND lg.host_name = c.host_name
-         AND lg.service_name = c.service_name
-         AND lg.schema_name = c.schema_name
         LEFT JOIN administracao.catalog_lgpd_marcacao mc
                ON mc.ambiente     = lg.ambiente
               AND mc.service_name = lg.service_name
@@ -132,17 +121,16 @@ elseif ($action == 'getTables') {
         WHERE lg.ambiente     = $1
           AND lg.service_name = $2
           AND lg.schema_name  = $3
-          AND c.fk_usuario    = $4
         GROUP BY lg.table_name
         ORDER BY lg.table_name
     ";
-    $result = pg_query_params($conexao, $query, [$ambiente, $service_name, $schema_name, $fk_usuario_logado]);
+    $result = pg_query_params($conexao, $query, [$ambiente, $service_name, $schema_name]);
     if ($result) {
         $arr = [];
         while ($row = pg_fetch_assoc($result)) {
-            $nomeTabela   = $row['table_name'];
-            $markingCount = (int)$row['marking_count'];
-            $insertMark   = (int)$row['insert_mark'];
+            $nomeTabela    = $row['table_name'];
+            $markingCount  = (int)$row['marking_count'];
+            $insertMark    = (int)$row['insert_mark'];
 
             if ($markingCount > 0) {
                 if ($insertMark >= $markingCount) {
@@ -151,20 +139,21 @@ elseif ($action == 'getTables') {
                     $nomeTabela = '( ! ) ' . $nomeTabela;
                 }
             }
+
             $arr[] = $nomeTabela;
         }
         $response['data'] = $arr;
         $response['success'] = true;
     }
 }
-// 5) getAttributes - Retorna os atributos de uma tabela, filtrando pelos acessos do usuário
+// 4) getAttributes
 elseif ($action == 'getAttributes') {
     $ambiente     = $_GET['ambiente'] ?? '';
     $service_name = $_GET['service_name'] ?? '';
     $schema_name  = $_GET['schema_name'] ?? '';
     $table_name   = $_GET['table_name'] ?? '';
-    
-    // Remove possíveis prefixos "( ! ) " ou "( OK ) " do nome da tabela
+
+    // Remove possíveis prefixos do nome da tabela
     $table_name = str_replace(['( ! ) ', '( OK ) '], '', $table_name);
 
     $query = "
@@ -189,21 +178,14 @@ elseif ($action == 'getAttributes') {
             nome_usuario_criador,
             lgpd_definicao,
             data_criacao_marcacao
-        FROM administracao.catalog_vw_lgpd_marcacao v
-        JOIN administracao.catalog_lgpd_acesso_schema_marcacao c
-          ON v.ambiente      = c.ambiente
-         AND v.data_base     = c.data_base
-         AND v.host_name     = c.host_name
-         AND v.service_name  = c.service_name
-         AND v.schema_name   = c.schema_name
-        WHERE v.ambiente     = $1
-          AND v.service_name = $2
-          AND v.schema_name  = $3
-          AND v.table_name   = $4
-          AND c.fk_usuario   = $5
+        FROM administracao.catalog_vw_lgpd_marcacao
+        WHERE ambiente = $1
+          AND service_name = $2
+          AND schema_name = $3
+          AND table_name = $4
         ORDER BY column_id
     ";
-    $params = [$ambiente, $service_name, $schema_name, $table_name, $fk_usuario_logado];
+    $params = [$ambiente, $service_name, $schema_name, $table_name];
     $result = pg_query_params($conexao, $query, $params);
     if ($result) {
         $arr = [];
@@ -214,7 +196,7 @@ elseif ($action == 'getAttributes') {
         $response['success'] = true;
     }
 }
-// 6) getAcoesInfos - Mapeia as ações LGPD com as classificações
+// 5) getAcoesInfos
 elseif ($action == 'getAcoesInfos') {
     $query = "
         SELECT 
@@ -240,14 +222,14 @@ elseif ($action == 'getAcoesInfos') {
         $response['success'] = true;
     }
 }
-// 7) insertAttribute - Insere um registro de marcação
+// 6) insertAttribute
 elseif ($action == 'insertAttribute') {
     $ambiente        = $_GET['ambiente'] ?? '';
     $service_name    = $_GET['service_name'] ?? '';
     $schema_name     = $_GET['schema_name'] ?? '';
     $table_name      = $_GET['table_name'] ?? '';
 
-    // Remove prefixos do nome da tabela
+    // Remove possíveis prefixos
     $table_name = str_replace(['( ! ) ', '( OK ) '], '', $table_name);
 
     $column_name     = $_GET['column_name'] ?? '';
@@ -287,7 +269,7 @@ elseif ($action == 'insertAttribute') {
         $response['message'] = pg_last_error($conexao);
     }
 }
-// 8) removeAttribute - Remove um registro de marcação
+// 7) removeAttribute
 elseif ($action == 'removeAttribute') {
     $ambiente    = $_GET['ambiente'] ?? '';
     $data_base   = $_GET['data_base'] ?? '';
@@ -296,7 +278,7 @@ elseif ($action == 'removeAttribute') {
     $schema_name = $_GET['schema_name'] ?? '';
     $table_name  = $_GET['table_name'] ?? '';
 
-    // Remove prefixos do nome da tabela
+    // Remove possíveis prefixos
     $table_name = str_replace(['( ! ) ', '( OK ) '], '', $table_name);
 
     $column_name = $_GET['column_name'] ?? '';

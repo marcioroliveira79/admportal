@@ -36,6 +36,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               startOnLoad: true
             });
           </script>
+          <script>
+            if (window.top === window.self) {
+                // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
+                window.location.href = 'index.php';
+            }
+        </script>
           
           <style>
             /* Garante que html/body ocupem 100% da tela */
@@ -315,7 +321,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
               }
               $('#tablePath').text('Resultados da busca');
               $.ajax({
-                url: 'catalogo_sql_dev_style_ajax.php',
+                url: 'catalogo/catalogo_sql_dev_style_ajax.php',
                 method: 'GET',
                 data: {
                   action: 'search',
@@ -371,7 +377,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $("#ambienteBusca").prop('disabled', true);
             $("#ambientesLoader").show();
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: { action: 'getAmbientes' },
               dataType: 'json',
@@ -401,7 +407,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function loadHierarchy(){
             $('#treeContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando...</div>');
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: { action: 'getHierarchy' },
               dataType: 'json',
@@ -613,7 +619,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $('#detailsContainer').html('<div class="loading">Carregando...</div>');
             if (objectType && ['PACKAGE', 'PACKAGE BODY', 'FUNCTION', 'PROCEDURE', 'TRIGGER'].includes(objectType.toUpperCase())) {
               $.ajax({
-                url: 'catalogo_sql_dev_style_ajax.php',
+                url: 'catalogo/catalogo_sql_dev_style_ajax.php',
                 method: 'GET',
                 data: {
                   action: 'getObjectDetails',
@@ -651,7 +657,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             }
             else {
               $.ajax({
-                url: 'catalogo_sql_dev_style_ajax.php',
+                url: 'catalogo/catalogo_sql_dev_style_ajax.php',
                 method: 'GET',
                 data: {
                   action: 'getTableDetails',
@@ -765,7 +771,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           // Carrega histórico de registros (gráfico)
           function loadTableHistory(ambiente, serviceName, schemaName, tableName) {
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: {
                 action: 'getTableHistory',
@@ -824,7 +830,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function loadViewCode(ambiente, serviceName, schemaName, viewName) {
             $('#viewCodeBlock').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: {
                 action: 'getObjectDetails',
@@ -864,7 +870,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function loadTableRelationships(ambiente, serviceName, schemaName, tableName) {
             $('#relationshipDiagram').html('<i class="fa fa-spinner fa-spin"></i> Carregando...');
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: {
                 action: 'getTableRelationships',
@@ -915,7 +921,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
           function loadSchemaRelationships(ambiente, serviceName, schemaName) {
             $('#detailsContainer').html('<div class="loading"><i class="fa fa-spinner fa-spin"></i> Carregando relacionamentos do schema...</div>');
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: {
                 action: 'getSchemaRelationships',
@@ -983,7 +989,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $('#tablePath').text(dataBase + '/' + serviceName);
             $('#detailsContainer').html('<div class="loading">Carregando informações do banco...</div>');
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: { action: 'getServiceInfo', data_base: dataBase, host_name: hostName, service_name: serviceName },
               dataType: 'json',
@@ -1059,7 +1065,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $('#detailsContainer').html(html);
 
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: { action: 'getSchemaHistory', host_name: host_name, service_name: service_name, ambiente: ambiente },
               dataType: 'json',
@@ -1142,7 +1148,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $('#detailsContainer').html(html);
             
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: { 
                 action: 'getTableHist', 
@@ -1216,7 +1222,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             $('#detailsContainer').html(html);
 
             $.ajax({
-              url: 'catalogo_sql_dev_style_ajax.php',
+              url: 'catalogo/catalogo_sql_dev_style_ajax.php',
               method: 'GET',
               data: { 
                 action: 'getAttributeHist', 

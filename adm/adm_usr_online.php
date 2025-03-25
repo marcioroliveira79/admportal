@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once("../module/conecta.php");
-require_once("../module/functions.php");
+require_once("module/conecta.php");
+require_once("module/functions.php");
 
 if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario']) && $acao != null) {
     $acesso = ItemAccess($_SESSION['global_id_perfil'], $acao, $conexao);
@@ -16,6 +16,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Status dos Usuários</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+                if (window.top === window.self) {
+                    // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
+                    window.location.href = 'index.php';
+                }
+            </script>
     <style>
         body {
             background-color: #f5f5f5;
@@ -97,7 +103,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
         // Função que busca os dados via AJAX
         function fetchStatus() {
             $.ajax({
-                url: 'adm_usr_online_ajax.php', // script que retorna os dados da view
+                url: 'adm/adm_usr_online_ajax.php', // script que retorna os dados da view
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {

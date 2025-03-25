@@ -168,7 +168,7 @@
                     </a>
                     <div id="<?= htmlspecialchars($menu) ?>Submenu" class="submenu">
                         <?php foreach ($detalhes['itens'] as $item): ?>
-                            <a href="?acao=<?= urlencode($item['link']) ?>" 
+                            <a href="?acao=<?= htmlspecialchars($item['link']) ?>" 
                             target="contentFrame" 
                             onclick="closeSubmenu()">
                                 <?= htmlspecialchars($item['descricao']) ?>

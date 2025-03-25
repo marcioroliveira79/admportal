@@ -60,6 +60,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             <!-- DataTables CSS e JS -->
             <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
             <script type="text/javascript" src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+            <script>
+                if (window.top === window.self) {
+                    // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
+                    window.location.href = 'index.php';
+                }
+            </script>
             <style>
                 body {
                     background-color: #f5f5f5;

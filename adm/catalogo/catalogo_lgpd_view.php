@@ -337,7 +337,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                 if(ambiente){
                     $.ajax({
-                        url: 'catalogo_lgpd_vw_ajax.php',
+                        url: 'catalogo/catalogo_lgpd_view_ajax.php',
                         method: 'GET',
                         data: { action: 'getServiceNames', ambiente: ambiente, user: userParam },
                         dataType: 'json',
@@ -369,7 +369,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                 if(service_name){
                     $.ajax({
-                        url: 'catalogo_lgpd_vw_ajax.php',
+                        url: 'catalogo/catalogo_lgpd_view_ajax.php',
                         method: 'GET',
                         data: { action: 'getSchemas', ambiente: ambiente, service_name: service_name, user: userParam },
                         dataType: 'json',
@@ -401,7 +401,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
                 if(schema_name){
                     $.ajax({
-                        url: 'catalogo_lgpd_vw_ajax.php',
+                        url: 'catalogo/catalogo_lgpd_view_ajax.php',
                         method: 'GET',
                         data: { action: 'getTables', ambiente: ambiente, service_name: service_name, schema_name: schema_name },
                         dataType: 'json',
@@ -436,7 +436,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             var listaAcoesUnicas = [];
 
             $.ajax({
-                url: 'catalogo_lgpd_vw_ajax.php',
+                url: 'catalogo/catalogo_lgpd_view_ajax.php',
                 method: 'GET',
                 data: { action: 'getAcoesInfos' },
                 dataType: 'json',
@@ -468,7 +468,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 var table_name = $('#table_name').val();
 
                 $.ajax({
-                    url: 'catalogo_lgpd_vw_ajax.php',
+                    url: 'catalogo/catalogo_lgpd_view_ajax.php',
                     method: 'GET',
                     data: {
                         action: 'getAttributes',
@@ -837,7 +837,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 var column_comment = btn.data('column_comment') || '';
 
                 $.ajax({
-                   url: 'catalogo_lgpd_vw_ajax.php',
+                   url: 'catalogo/catalogo_lgpd_view_ajax.php',
                    method: 'GET',
                    data: {
                         action: 'insertAttribute',
@@ -893,7 +893,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
                 var column_comment = btn.data('column_comment') || '';
 
                 $.ajax({
-                    url: 'catalogo_lgpd_vw_ajax.php',
+                    url: 'catalogo/catalogo_lgpd_view_ajax.php',
                     method: 'GET',
                     data: {
                             action: 'removeAttribute',

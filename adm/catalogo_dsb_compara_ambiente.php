@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once("../module/conecta.php");
-require_once("../module/functions.php");
+require_once("module/conecta.php");
+require_once("module/functions.php");
 
 // Conectar (exemplo usando seu objeto "portal")
 $pg = new portal();
@@ -444,6 +444,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             <title>Comparação de Ambientes</title>
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
             <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+            <script>
+                if (window.top === window.self) {
+                    // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
+                    window.location.href = 'index.php';
+                }
+            </script>
             <script>
             $(document).ready(function(){
                 $("#ambiente1").change(function(){

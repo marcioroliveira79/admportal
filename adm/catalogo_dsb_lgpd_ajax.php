@@ -2,7 +2,7 @@
 session_start();
 
 // Exemplo de conexao
-require_once("../module/conecta.php");
+require_once("module/conecta.php");
 $pg = new portal();
 $conexao = $pg->conectar_obj();
 

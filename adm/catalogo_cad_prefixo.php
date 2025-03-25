@@ -234,6 +234,12 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Cadastro de Prefixo de Tipo</title>
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+            <script>
+                if (window.top === window.self) {
+                    // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
+                    window.location.href = 'index.php';
+                }
+            </script>
             <style>
                 /* Ajusta a largura mínima da coluna "Data de Criação" (6ª coluna) */
                 .table-listing th:nth-child(6),
