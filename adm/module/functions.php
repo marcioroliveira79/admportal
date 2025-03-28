@@ -428,17 +428,21 @@ function geraArquivoPrefixo($conexao) {
 
 function geraArquivoPalavraLGPD($conexao) {
     $query_json = "
-    	WITH cte AS (
-        SELECT 
-          '\"' || lg.atributo || '\": \"' || clg.classificacao || '\"' AS linha,
-          row_number() OVER (ORDER BY lg.atributo) AS rn,
-          count(*) OVER () AS total
-        FROM administracao.catalog_atributo_classificado_lgpd lg
-        LEFT JOIN administracao.catalog_lgpd_classificacao clg 
-          ON lg.fk_lgpd_classificacao = clg.id AND lg.tipo_definicao ='DICIONARIO'
-      )
-      SELECT '{' || string_agg(linha || CASE WHEN rn < total THEN ',' ELSE '' END, E'\n') || '}' AS final_result
-      FROM cte;
+    	
+            WITH cte AS (
+                SELECT 
+                '\"' || lg.atributo || '\": \"' || clg.classificacao || '\"' AS linha
+                FROM administracao.catalog_atributo_classificado_lgpd lg
+                LEFT JOIN administracao.catalog_lgpd_classificacao clg 
+                ON lg.fk_lgpd_classificacao = clg.id 
+                AND lg.tipo_definicao = 'DICIONARIO'
+                
+            )
+            SELECT 
+                '{'
+                || string_agg(linha, E',\n')
+                || '}' AS final_result
+            FROM cte;
     ";
 
     $result_json = pg_query($conexao, $query_json);

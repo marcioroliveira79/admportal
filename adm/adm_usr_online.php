@@ -1,7 +1,9 @@
 <?php
 session_start();
-require_once("module/conecta.php");
-require_once("module/functions.php");
+
+require_once __DIR__ . '/module/conecta.php';
+require_once __DIR__ . '/module/functions.php';
+
 
 if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario']) && $acao != null) {
     $acesso = ItemAccess($_SESSION['global_id_perfil'], $acao, $conexao);
@@ -103,7 +105,7 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
         // Função que busca os dados via AJAX
         function fetchStatus() {
             $.ajax({
-                url: 'adm/adm_usr_online_ajax.php', // script que retorna os dados da view
+                url: 'adm_usr_online_ajax.php', // script que retorna os dados da view
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {

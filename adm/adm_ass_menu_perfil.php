@@ -25,23 +25,28 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $fk_menu = (int)$_POST['fk_menu'];
-            $ordem = !empty($_POST['ordem']) ? (int)$_POST['ordem'] : null;
-            $fk_usuario_alteracao = $_SESSION['global_id_usuario'];
+            // Validação do campo ordem obrigatório
+            if (empty($_POST['ordem'])) {
+                $mensagem = "O campo Ordem é obrigatório.";
+            } else {
+                $fk_menu = (int)$_POST['fk_menu'];
+                $ordem = (int)$_POST['ordem'];
+                $fk_usuario_alteracao = $_SESSION['global_id_usuario'];
 
-            if ($id_perfil > 0) {
-                // Inserir nova associação
-                $query_insert = "
-                    INSERT INTO administracao.adm_perfil_menu (fk_perfil, fk_menu, ordem, fk_usuario_alteracao, data_alteracao)
-                    VALUES ($1, $2, $3, $4, now())
-                ";
-                $result_insert = pg_query_params($conexao, $query_insert, [$id_perfil, $fk_menu, $ordem, $fk_usuario_alteracao]);
-                $erro_banco = pg_last_error($conexao);
+                if ($id_perfil > 0) {
+                    // Inserir nova associação
+                    $query_insert = "
+                        INSERT INTO administracao.adm_perfil_menu (fk_perfil, fk_menu, ordem, fk_usuario_alteracao, data_alteracao)
+                        VALUES ($1, $2, $3, $4, now())
+                    ";
+                    $result_insert = pg_query_params($conexao, $query_insert, [$id_perfil, $fk_menu, $ordem, $fk_usuario_alteracao]);
+                    $erro_banco = pg_last_error($conexao);
 
-                if ($result_insert) {
-                    $mensagem = "Associação adicionada com sucesso!";
-                } else {
-                    $mensagem = "Erro ao adicionar a associação.";
+                    if ($result_insert) {
+                        $mensagem = "Associação adicionada com sucesso!";
+                    } else {
+                        $mensagem = "Erro ao adicionar a associação.";
+                    }
                 }
             }
         }
@@ -84,8 +89,18 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
         }
 
         // Carregar menus
-        $query_menus = "SELECT id, descricao FROM administracao.adm_menu ORDER BY descricao ASC";
-        $result_menus = pg_query($conexao, $query_menus);
+        if ($id_perfil > 0) {
+            $query_menus = "SELECT id, descricao FROM administracao.adm_menu 
+                            WHERE id NOT IN (
+                                SELECT fk_menu FROM administracao.adm_perfil_menu WHERE fk_perfil = $1
+                            )
+                            ORDER BY descricao ASC";
+            $result_menus = pg_query_params($conexao, $query_menus, [$id_perfil]);
+        } else {
+            $query_menus = "SELECT id, descricao FROM administracao.adm_menu ORDER BY descricao ASC";
+            $result_menus = pg_query($conexao, $query_menus);
+        }
+        
         $erro_banco = pg_last_error($conexao);
 
         if (!$result_menus) {
@@ -103,11 +118,11 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
     <title>Gerenciar Associações de Menu</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script>
-                if (window.top === window.self) {
-                    // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
-                    window.location.href = 'index.php';
-                }
-            </script>
+        if (window.top === window.self) {
+            // Se a página não estiver sendo exibida dentro de um iframe, redireciona para o index
+            window.location.href = 'index.php';
+        }
+    </script>
     <style>
         body {
             background-color: #f5f5f5;

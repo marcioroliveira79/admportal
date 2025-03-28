@@ -1,8 +1,11 @@
 <?php
 ob_start();
 // Incluindo arquivos de configuração e funções necessárias
-require_once("module/conecta.php");
-require_once("module/functions.php");
+
+require_once __DIR__ . '/module/conecta.php';
+require_once __DIR__ . '/module/functions.php';
+
+
 echo '<meta charset="utf-8"/>';
 
 if (!isset($conexao)) {

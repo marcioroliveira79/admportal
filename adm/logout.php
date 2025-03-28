@@ -2,8 +2,8 @@
 OB_START();
 session_start();
 
-require_once("module/conecta.php");
-require_once("module/functions.php");
+require_once __DIR__ . '/module/conecta.php';
+require_once __DIR__ . '/module/functions.php';
 
 $pg=new portal;
 $conexao =  $pg->conectar_obj();

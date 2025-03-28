@@ -14,6 +14,10 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
 
         // Exclusão de item de menu
         if ($delete_id > 0) {
+            
+            $query_delete_action = "DELETE FROM administracao.adm_item_menu_action WHERE fk_item_menu = $1";
+            $result_delete_action = pg_query_params($conexao, $query_delete_action, [$delete_id]);
+            
             $query_delete = "DELETE FROM administracao.adm_item_menu WHERE id = $1";
             $result_delete = pg_query_params($conexao, $query_delete, [$delete_id]);
             $erro_banco = pg_last_error($conexao);
@@ -22,6 +26,8 @@ if (isset($_SESSION['global_id_usuario']) && !empty($_SESSION['global_id_usuario
             } else {
                 $mensagem = "Erro ao excluir o item de menu.";
             }
+
+
         }
 
         // Processamento de formulário (inserção/atualização)
